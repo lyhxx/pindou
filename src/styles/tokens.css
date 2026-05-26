@@ -1,0 +1,121 @@
+:root {
+  --color-ink-strong: #26221c;
+  --color-ink: #3b342c;
+  --color-ink-soft: #7a6c5b;
+  --color-ink-muted: #a1917d;
+
+  --color-bg-page: #f6f1e7;
+  --color-bg-surface: #fff9f1;
+  --color-bg-surface-2: #f8f0e4;
+  --color-bg-surface-3: #efe6d8;
+  --color-bg-popup: #fffdf8;
+
+  --color-accent-primary: #e85d3f;
+  --color-accent-primary-hover: #d95135;
+  --color-accent-primary-active: #be462c;
+  --color-accent-secondary: #2f8f83;
+  --color-accent-highlight: #f2c14e;
+  --color-accent-info: #4aa3a1;
+
+  --color-success: #4d9f70;
+  --color-warning: #d98b2b;
+  --color-error: #c94b4b;
+  --color-info: #4d7ea8;
+
+  --color-border-soft: rgba(38, 34, 28, 0.08);
+  --color-border-default: rgba(38, 34, 28, 0.12);
+  --color-border-strong: rgba(38, 34, 28, 0.2);
+  --color-border-accent: rgba(232, 93, 63, 0.35);
+
+  --surface-page: var(--color-bg-page);
+  --surface-panel: var(--color-bg-surface);
+  --surface-panel-alt: var(--color-bg-surface-2);
+  --surface-stage: var(--color-bg-surface-3);
+  --surface-popup: var(--color-bg-popup);
+
+  --text-primary: var(--color-ink-strong);
+  --text-secondary: var(--color-ink-soft);
+  --text-muted: var(--color-ink-muted);
+
+  --action-primary: var(--color-accent-primary);
+  --action-secondary: var(--color-accent-secondary);
+
+  --border-panel: var(--color-border-soft);
+  --border-control: var(--color-border-default);
+  --border-focus: var(--color-border-accent);
+  --focus-ring-color: rgba(74, 163, 161, 0.32);
+  --focus-ring-shadow: 0 0 0 3px var(--focus-ring-color);
+
+  --font-brand: "Smiley Sans", "ZCOOL KuaiLe", "Trebuchet MS", sans-serif;
+  --font-ui: "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "IBM Plex Mono", "Cascadia Mono", monospace;
+
+  --font-size-hero: 48px;
+  --font-size-h1: 36px;
+  --font-size-h2: 28px;
+  --font-size-h3: 22px;
+  --font-size-h4: 18px;
+  --font-size-body-lg: 16px;
+  --font-size-body: 14px;
+  --font-size-body-sm: 13px;
+  --font-size-caption: 12px;
+  --font-size-micro: 11px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-heavy: 800;
+
+  --line-height-hero: 1.1;
+  --line-height-heading: 1.2;
+  --line-height-body: 1.5;
+  --line-height-compact: 1.35;
+
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-40: 40px;
+  --space-48: 48px;
+  --space-64: 64px;
+
+  --page-padding-x: 24px;
+  --page-padding-y: 24px;
+  --section-gap: 32px;
+  --panel-padding: 14px;
+  --card-padding: 16px;
+
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  --shadow-xs: 0 2px 8px rgba(38, 34, 28, 0.06);
+  --shadow-sm: 0 4px 12px rgba(38, 34, 28, 0.07);
+  --shadow-md: 0 8px 20px rgba(38, 34, 28, 0.08);
+  --shadow-lg: 0 16px 36px rgba(38, 34, 28, 0.1);
+
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-medium: 240ms;
+  --motion-slow: 360ms;
+
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-press: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --topbar-height: 54px;
+  --editor-left-width: 282px;
+  --editor-right-width: 258px;
+  --editor-column-gap: 12px;
+  --stage-min-height: 640px;
+  --stage-toolbar-height: 40px;
+  --statusbar-height: 28px;
+}
