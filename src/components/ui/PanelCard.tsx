@@ -5,6 +5,7 @@ type PanelCardProps = PropsWithChildren<{
   eyebrow?: string;
   footer?: ReactNode;
   className?: string;
+  tone?: "default" | "editor";
 }>;
 
 export function PanelCard({
@@ -13,9 +14,10 @@ export function PanelCard({
   eyebrow,
   footer,
   className = "",
+  tone = "default",
 }: PanelCardProps) {
   return (
-    <section className={`panel-card ${className}`.trim()}>
+    <section className={`panel-card panel-card--${tone} ${className}`.trim()}>
       <header className="panel-card__header">
         {eyebrow ? <p className="panel-card__eyebrow">{eyebrow}</p> : null}
         <h3 className="panel-card__title">{title}</h3>

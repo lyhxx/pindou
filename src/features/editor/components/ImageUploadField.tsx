@@ -34,11 +34,9 @@ export function ImageUploadField() {
         onChange={handleFileChange}
         type="file"
       />
-      <span className="upload-field__title">
-        {sourceImage ? "重新上传图片" : "上传图片"}
-      </span>
-      <span className="upload-field__description">
-        支持本地图像文件，上传后会立刻进入画布定位预览。
+      <span className="upload-field__content">
+        <span className="upload-field__title">{sourceImage ? "更换图片" : "上传图片"}</span>
+        <span className="upload-field__description">PNG / JPG，本地处理</span>
       </span>
     </label>
   );

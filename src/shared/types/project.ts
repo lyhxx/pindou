@@ -1,4 +1,4 @@
-export type EditorTool = "paint" | "erase" | "picker" | "pan";
+export type EditorTool = "paint" | "erase" | "picker" | "pan" | "fill" | "select";
 
 export type DitheringMode = "none" | "floyd-steinberg";
 
@@ -11,6 +11,13 @@ export type ViewTransform = {
   scale: number;
   offsetX: number;
   offsetY: number;
+};
+
+export type RectSelection = {
+  startX: number;
+  startY: number;
+  endX: number;
+  endY: number;
 };
 
 export type PaletteColor = {
@@ -52,6 +59,7 @@ export type ProjectState = {
   canvas: CanvasSize;
   sourceImage: SourceImage | null;
   beadGrid: BeadGrid | null;
+  currentSelection: RectSelection | null;
   imageTransform: ViewTransform;
   stageViewport: ViewTransform;
   processing: ProcessingSettings;
@@ -69,6 +77,7 @@ export type SerializedProjectFile = {
     canvas: CanvasSize;
     sourceImage: SourceImage | null;
     beadGrid: SerializedBeadGrid | null;
+    currentSelection: RectSelection | null;
     imageTransform: ViewTransform;
     stageViewport: ViewTransform;
     processing: ProcessingSettings;

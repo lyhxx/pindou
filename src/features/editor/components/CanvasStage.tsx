@@ -1,6 +1,5 @@
 import {
   forwardRef,
-  useEffect,
   useImperativeHandle,
   useLayoutEffect,
   useRef,
@@ -11,27 +10,39 @@ import type {
   BeadGrid,
   CanvasSize,
   EditorTool,
-  SourceImage,
+  RectSelection,
   ViewTransform,
 } from "../../../shared/types/project";
 import { EMPTY_CELL } from "../../../shared/types/project";
+
+type HoverInfo = {
+  x: number;
+  y: number;
+  colorIndex: number;
+};
 
 type CanvasStageProps = {
   activeTool: EditorTool;
   beadGrid: BeadGrid | null;
   canvas: CanvasSize;
-  imageTransform: ViewTransform;
-  onCellAction: (x: number, y: number, mode?: "paint" | "erase" | "picker") => void;
+  currentSelection: RectSelection | null;
+  onCellAction: (
+    x: number,
+    y: number,
+    mode?: "paint" | "erase" | "picker" | "fill",
+  ) => void;
+  onHoverChange: (hover: HoverInfo | null) => void;
+  onSelectionChange: (selection: RectSelection | null) => void;
+  onSelectionMove: (selection: RectSelection, deltaX: number, deltaY: number) => void;
   onViewportChange: (transform: Partial<ViewTransform>) => void;
-  sourceImage: SourceImage | null;
   stageViewport: ViewTransform;
   showGrid: boolean;
 };
 
 const CANVAS_SIZE = 1600;
-const RULER_SIZE = 28;
+const RULER_SIZE = 30;
 const GRID_MAJOR_STEP = 10;
-const CELL_LABEL_MIN_SIZE = 14;
+const PAPER_PADDING = 0;
 
 export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
   function CanvasStage(
@@ -39,10 +50,12 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       activeTool,
       beadGrid,
       canvas,
-      imageTransform,
+      currentSelection,
       onCellAction,
+      onHoverChange,
+      onSelectionChange,
+      onSelectionMove,
       onViewportChange,
-      sourceImage,
       stageViewport,
       showGrid,
     },
@@ -50,9 +63,9 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
   ) {
     const shellRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
-    const imageRef = useRef<HTMLImageElement | null>(null);
     const [displaySize, setDisplaySize] = useState({ width: 640, height: 640 });
     const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null);
+    const [selectionRect, setSelectionRect] = useState<RectSelection | null>(currentSelection);
     const [isPanning, setIsPanning] = useState(false);
     const [isSpacePressed, setIsSpacePressed] = useState(false);
     const panStateRef = useRef<{
@@ -62,12 +75,24 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       originOffsetX: number;
       originOffsetY: number;
     } | null>(null);
+    const selectStateRef = useRef<{
+      pointerId: number;
+      startCell: { x: number; y: number };
+      mode: "create" | "move";
+      originSelection: RectSelection | null;
+      lastDeltaX: number;
+      lastDeltaY: number;
+    } | null>(null);
 
     useImperativeHandle(
       forwardedRef,
       () => canvasRef.current as HTMLCanvasElement,
       [],
     );
+
+    useLayoutEffect(() => {
+      setSelectionRect(currentSelection);
+    }, [currentSelection]);
 
     useLayoutEffect(() => {
       const shellNode = shellRef.current;
@@ -78,14 +103,11 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       const updateSize = (width: number, height: number) => {
         const usableWidth = Math.max(240, width - 24);
         const usableHeight = Math.max(240, height - 24);
-        const scale = Math.min(
-          usableWidth / (canvas.width + 2),
-          usableHeight / (canvas.height + 2),
-        );
+        const scale = Math.min(usableWidth / CANVAS_SIZE, usableHeight / CANVAS_SIZE);
 
         setDisplaySize({
-          width: Math.max(240, Math.floor(canvas.width * scale)),
-          height: Math.max(240, Math.floor(canvas.height * scale)),
+          width: Math.max(240, Math.floor(CANVAS_SIZE * scale)),
+          height: Math.max(240, Math.floor(CANVAS_SIZE * scale)),
         });
       };
 
@@ -102,27 +124,13 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       updateSize(shellNode.clientWidth, shellNode.clientHeight);
 
       return () => resizeObserver.disconnect();
-    }, [canvas.height, canvas.width]);
+    }, []);
 
-    useEffect(() => {
-      if (!sourceImage) {
-        imageRef.current = null;
-        return;
-      }
-
-      const image = new Image();
-      image.onload = () => {
-        imageRef.current = image;
-        draw();
-      };
-      image.src = sourceImage.src;
-    }, [sourceImage]);
-
-    useEffect(() => {
+    useLayoutEffect(() => {
       draw();
-    }, [beadGrid, canvas, imageTransform, hoverCell, showGrid, stageViewport, sourceImage]);
+    }, [activeTool, beadGrid, canvas, hoverCell, selectionRect, showGrid, stageViewport]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       function handleKeyDown(event: KeyboardEvent) {
         if (event.code === "Space") {
           setIsSpacePressed(true);
@@ -156,94 +164,86 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         return;
       }
 
-      const gridWidth = CANVAS_SIZE - RULER_SIZE;
-      const gridHeight = CANVAS_SIZE - RULER_SIZE;
+      const paperLeft = RULER_SIZE;
+      const paperTop = RULER_SIZE;
+      const paperRight = CANVAS_SIZE - RULER_SIZE;
+      const paperBottom = CANVAS_SIZE - RULER_SIZE;
+      const gridWidth = paperRight - paperLeft - PAPER_PADDING * 2;
+      const gridHeight = paperBottom - paperTop - PAPER_PADDING * 2;
       const cellWidth = gridWidth / canvas.width;
       const cellHeight = gridHeight / canvas.height;
 
       context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-      context.fillStyle = "#f3ece0";
+      context.fillStyle = "#d8c8ae";
       context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      drawRulers(context, cellWidth, cellHeight, gridWidth, gridHeight);
-      drawPaper(context, gridWidth, gridHeight);
-
-      if (imageRef.current && !beadGrid) {
-        drawSourceImage(context, imageRef.current, gridWidth, gridHeight);
-      }
-
-      drawGridFill(context, beadGrid, cellWidth, cellHeight);
+      drawRulers(context, cellWidth, cellHeight, paperLeft, paperTop, gridWidth, gridHeight);
+      drawPaper(context, paperLeft, paperTop, paperRight - paperLeft, paperBottom - paperTop);
+      drawGridFill(context, beadGrid, cellWidth, cellHeight, paperLeft, paperTop);
 
       if (showGrid) {
-        drawGridLines(context, cellWidth, cellHeight, gridWidth, gridHeight);
+        drawGridLines(context, cellWidth, cellHeight, paperLeft, paperTop, gridWidth, gridHeight);
       }
 
-      drawCellLabels(context, beadGrid, cellWidth, cellHeight);
-      drawHoverCell(context, hoverCell, cellWidth, cellHeight);
+      drawSelectionRect(context, selectionRect, cellWidth, cellHeight, paperLeft, paperTop);
+      drawHoverCell(context, hoverCell, cellWidth, cellHeight, paperLeft, paperTop);
     }
 
     function drawRulers(
       context: CanvasRenderingContext2D,
       cellWidth: number,
       cellHeight: number,
+      paperLeft: number,
+      paperTop: number,
       gridWidth: number,
       gridHeight: number,
     ) {
-      context.fillStyle = "#f7f7f7";
-      context.fillRect(RULER_SIZE, 0, gridWidth, RULER_SIZE);
-      context.fillRect(0, RULER_SIZE, RULER_SIZE, gridHeight);
+      const paperRight = paperLeft + gridWidth;
+      const paperBottom = paperTop + gridHeight;
+
+      context.fillStyle = "#f5f2ec";
+      context.fillRect(paperLeft, 0, gridWidth, RULER_SIZE);
+      context.fillRect(paperLeft, paperBottom, gridWidth, RULER_SIZE);
+      context.fillRect(0, paperTop, RULER_SIZE, gridHeight);
+      context.fillRect(paperRight, paperTop, RULER_SIZE, gridHeight);
       context.fillRect(0, 0, RULER_SIZE, RULER_SIZE);
+      context.fillRect(paperRight, 0, RULER_SIZE, RULER_SIZE);
+      context.fillRect(0, paperBottom, RULER_SIZE, RULER_SIZE);
+      context.fillRect(paperRight, paperBottom, RULER_SIZE, RULER_SIZE);
 
-      context.strokeStyle = "#c8c8c8";
+      context.strokeStyle = "#c8bca7";
       context.lineWidth = 1;
-      context.beginPath();
-      context.moveTo(RULER_SIZE, RULER_SIZE);
-      context.lineTo(CANVAS_SIZE, RULER_SIZE);
-      context.moveTo(RULER_SIZE, RULER_SIZE);
-      context.lineTo(RULER_SIZE, CANVAS_SIZE);
-      context.stroke();
+      context.strokeRect(paperLeft, paperTop, gridWidth, gridHeight);
 
-      context.fillStyle = "#3f3f3f";
+      context.fillStyle = "#5c5045";
       context.font = "11px IBM Plex Mono, monospace";
       context.textAlign = "center";
       context.textBaseline = "middle";
 
       for (let x = 0; x < canvas.width; x += 1) {
-        const centerX = RULER_SIZE + x * cellWidth + cellWidth / 2;
-        context.fillText(String(x + 1), centerX, RULER_SIZE / 2);
+        const centerX = paperLeft + x * cellWidth + cellWidth / 2;
+        const label = String(x + 1);
+        context.fillText(label, centerX, RULER_SIZE / 2);
+        context.fillText(label, centerX, paperBottom + RULER_SIZE / 2);
       }
 
       for (let y = 0; y < canvas.height; y += 1) {
-        const centerY = RULER_SIZE + y * cellHeight + cellHeight / 2;
-        context.fillText(String(y + 1), RULER_SIZE / 2, centerY);
+        const centerY = paperTop + y * cellHeight + cellHeight / 2;
+        const label = String(y + 1);
+        context.fillText(label, RULER_SIZE / 2, centerY);
+        context.fillText(label, paperRight + RULER_SIZE / 2, centerY);
       }
     }
 
     function drawPaper(
       context: CanvasRenderingContext2D,
-      gridWidth: number,
-      gridHeight: number,
+      left: number,
+      top: number,
+      width: number,
+      height: number,
     ) {
       context.fillStyle = "#ffffff";
-      context.fillRect(RULER_SIZE, RULER_SIZE, gridWidth, gridHeight);
-    }
-
-    function drawSourceImage(
-      context: CanvasRenderingContext2D,
-      image: HTMLImageElement,
-      gridWidth: number,
-      gridHeight: number,
-    ) {
-      const baseScale = Math.min(gridWidth / image.width, gridHeight / image.height);
-      const scaledWidth = image.width * baseScale * imageTransform.scale;
-      const scaledHeight = image.height * baseScale * imageTransform.scale;
-      const left = RULER_SIZE + (gridWidth - scaledWidth) / 2 + imageTransform.offsetX / 16;
-      const top = RULER_SIZE + (gridHeight - scaledHeight) / 2 + imageTransform.offsetY / 16;
-
-      context.save();
-      context.globalAlpha = 0.78;
-      context.drawImage(image, left, top, scaledWidth, scaledHeight);
-      context.restore();
+      context.fillRect(left, top, width, height);
     }
 
     function drawGridFill(
@@ -251,6 +251,8 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       grid: BeadGrid | null,
       cellWidth: number,
       cellHeight: number,
+      paperLeft: number,
+      paperTop: number,
     ) {
       if (!grid) {
         return;
@@ -266,8 +268,8 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
           const color = defaultPalette[colorIndex] ?? defaultPalette[0];
           context.fillStyle = color.hex;
           context.fillRect(
-            RULER_SIZE + x * cellWidth,
-            RULER_SIZE + y * cellHeight,
+            paperLeft + x * cellWidth,
+            paperTop + y * cellHeight,
             cellWidth,
             cellHeight,
           );
@@ -279,6 +281,8 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       context: CanvasRenderingContext2D,
       cellWidth: number,
       cellHeight: number,
+      paperLeft: number,
+      paperTop: number,
       gridWidth: number,
       gridHeight: number,
     ) {
@@ -287,57 +291,59 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
       for (let x = 0; x <= canvas.width; x += 1) {
         context.strokeStyle =
-          x % GRID_MAJOR_STEP === 0 ? "#f0a14a" : "rgba(140, 140, 140, 0.55)";
+          x % GRID_MAJOR_STEP === 0 ? "#e0a04c" : "rgba(126, 119, 110, 0.42)";
         context.beginPath();
-        context.moveTo(RULER_SIZE + x * cellWidth, RULER_SIZE);
-        context.lineTo(RULER_SIZE + x * cellWidth, RULER_SIZE + gridHeight);
+        context.moveTo(paperLeft + x * cellWidth, paperTop);
+        context.lineTo(paperLeft + x * cellWidth, paperTop + gridHeight);
         context.stroke();
       }
 
       for (let y = 0; y <= canvas.height; y += 1) {
         context.strokeStyle =
-          y % GRID_MAJOR_STEP === 0 ? "#f0a14a" : "rgba(140, 140, 140, 0.55)";
+          y % GRID_MAJOR_STEP === 0 ? "#e0a04c" : "rgba(126, 119, 110, 0.42)";
         context.beginPath();
-        context.moveTo(RULER_SIZE, RULER_SIZE + y * cellHeight);
-        context.lineTo(RULER_SIZE + gridWidth, RULER_SIZE + y * cellHeight);
+        context.moveTo(paperLeft, paperTop + y * cellHeight);
+        context.lineTo(paperLeft + gridWidth, paperTop + y * cellHeight);
         context.stroke();
       }
 
       context.restore();
     }
 
-    function drawCellLabels(
+    function drawSelectionRect(
       context: CanvasRenderingContext2D,
-      grid: BeadGrid | null,
+      selection: RectSelection | null,
       cellWidth: number,
       cellHeight: number,
+      paperLeft: number,
+      paperTop: number,
     ) {
-      if (!grid || Math.min(cellWidth, cellHeight) < CELL_LABEL_MIN_SIZE) {
+      if (!selection) {
         return;
       }
 
-      context.font = `${Math.max(8, Math.floor(Math.min(cellWidth, cellHeight) * 0.36))}px IBM Plex Mono, monospace`;
-      context.textAlign = "center";
-      context.textBaseline = "middle";
+      const left = Math.min(selection.startX, selection.endX);
+      const top = Math.min(selection.startY, selection.endY);
+      const right = Math.max(selection.startX, selection.endX);
+      const bottom = Math.max(selection.startY, selection.endY);
 
-      for (let y = 0; y < grid.height; y += 1) {
-        for (let x = 0; x < grid.width; x += 1) {
-          const colorIndex = grid.cells[y * grid.width + x];
-          if (colorIndex === EMPTY_CELL) {
-            continue;
-          }
-
-          const color = defaultPalette[colorIndex] ?? defaultPalette[0];
-          const [r, g, b] = color.rgb;
-          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-          context.fillStyle = luminance > 160 ? "#2a241d" : "#ffffff";
-          context.fillText(
-            color.id,
-            RULER_SIZE + x * cellWidth + cellWidth / 2,
-            RULER_SIZE + y * cellHeight + cellHeight / 2,
-          );
-        }
-      }
+      context.save();
+      context.fillStyle = "rgba(74, 163, 161, 0.18)";
+      context.strokeStyle = "#2f8f83";
+      context.lineWidth = 2;
+      context.fillRect(
+        paperLeft + left * cellWidth,
+        paperTop + top * cellHeight,
+        (right - left + 1) * cellWidth,
+        (bottom - top + 1) * cellHeight,
+      );
+      context.strokeRect(
+        paperLeft + left * cellWidth + 1,
+        paperTop + top * cellHeight + 1,
+        (right - left + 1) * cellWidth - 2,
+        (bottom - top + 1) * cellHeight - 2,
+      );
+      context.restore();
     }
 
     function drawHoverCell(
@@ -345,19 +351,22 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       cell: { x: number; y: number } | null,
       cellWidth: number,
       cellHeight: number,
+      paperLeft: number,
+      paperTop: number,
     ) {
-      if (!cell) {
+      if (!cell || activeTool === "select") {
         return;
       }
 
       context.save();
-      context.strokeStyle = activeTool === "erase" ? "#c94b4b" : "#4aa3a1";
+      context.strokeStyle =
+        activeTool === "erase" ? "#c94b4b" : activeTool === "fill" ? "#e58a3c" : "#2f8f83";
       context.lineWidth = 2;
       context.strokeRect(
-        RULER_SIZE + cell.x * cellWidth + 1,
-        RULER_SIZE + cell.y * cellHeight + 1,
-        cellWidth - 2,
-        cellHeight - 2,
+        paperLeft + cell.x * cellWidth + 1,
+        paperTop + cell.y * cellHeight + 1,
+        Math.max(1, cellWidth - 2),
+        Math.max(1, cellHeight - 2),
       );
       context.restore();
     }
@@ -397,8 +406,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }
 
     function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-      const shouldPan =
-        isSpacePressed || event.button === 1 || activeTool === "pan";
+      const shouldPan = isSpacePressed || event.button === 1;
 
       if (shouldPan) {
         panStateRef.current = {
@@ -419,7 +427,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         return;
       }
 
-      setHoverCell(cell);
+      updateHover(cell);
 
       if (event.button === 2 || event.altKey) {
         onCellAction(cell.x, cell.y, "picker");
@@ -428,6 +436,37 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
       if (activeTool === "picker") {
         onCellAction(cell.x, cell.y, "picker");
+        return;
+      }
+
+      if (activeTool === "fill") {
+        onCellAction(cell.x, cell.y, "fill");
+        return;
+      }
+
+      if (activeTool === "select") {
+        const insideExistingSelection = selectionRect
+          ? isCellInsideSelection(cell.x, cell.y, selectionRect)
+          : false;
+        const rect =
+          insideExistingSelection && selectionRect
+            ? selectionRect
+            : {
+                startX: cell.x,
+                startY: cell.y,
+                endX: cell.x,
+                endY: cell.y,
+              };
+        selectStateRef.current = {
+          pointerId: event.pointerId,
+          startCell: cell,
+          mode: insideExistingSelection ? "move" : "create",
+          originSelection: selectionRect,
+          lastDeltaX: 0,
+          lastDeltaY: 0,
+        };
+        setSelectionRect(rect);
+        event.currentTarget.setPointerCapture(event.pointerId);
         return;
       }
 
@@ -441,7 +480,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
     function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
       const cell = getCellFromPointer(event.clientX, event.clientY);
-      setHoverCell(cell);
+      updateHover(cell);
 
       const panState = panStateRef.current;
       if (panState && panState.pointerId === event.pointerId) {
@@ -452,7 +491,37 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         return;
       }
 
-      if (!cell || event.buttons !== 1 || activeTool === "picker") {
+      const selectState = selectStateRef.current;
+      if (selectState && selectState.pointerId === event.pointerId && cell) {
+        if (selectState.mode === "move" && selectState.originSelection) {
+          const clampedDelta = clampSelectionDelta(
+            selectState.originSelection,
+            cell.x - selectState.startCell.x,
+            cell.y - selectState.startCell.y,
+            canvas.width,
+            canvas.height,
+          );
+          selectState.lastDeltaX = clampedDelta.deltaX;
+          selectState.lastDeltaY = clampedDelta.deltaY;
+          setSelectionRect({
+            startX: selectState.originSelection.startX + clampedDelta.deltaX,
+            startY: selectState.originSelection.startY + clampedDelta.deltaY,
+            endX: selectState.originSelection.endX + clampedDelta.deltaX,
+            endY: selectState.originSelection.endY + clampedDelta.deltaY,
+          });
+          return;
+        }
+
+        setSelectionRect({
+          startX: selectState.startCell.x,
+          startY: selectState.startCell.y,
+          endX: cell.x,
+          endY: cell.y,
+        });
+        return;
+      }
+
+      if (!cell || event.buttons !== 1 || activeTool === "picker" || activeTool === "fill") {
         return;
       }
 
@@ -472,7 +541,56 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         panStateRef.current = null;
         setIsPanning(false);
         event.currentTarget.releasePointerCapture(event.pointerId);
+        return;
       }
+
+      const selectState = selectStateRef.current;
+      if (selectState && selectState.pointerId === event.pointerId) {
+        const rect = selectionRect;
+        selectStateRef.current = null;
+        event.currentTarget.releasePointerCapture(event.pointerId);
+
+        if (
+          selectState.mode === "move" &&
+          selectState.originSelection &&
+          (selectState.lastDeltaX !== 0 || selectState.lastDeltaY !== 0)
+        ) {
+          onSelectionMove(
+            selectState.originSelection,
+            selectState.lastDeltaX,
+            selectState.lastDeltaY,
+          );
+          return;
+        }
+
+        if (rect && selectState.mode === "create") {
+          onSelectionChange(rect);
+        }
+      }
+    }
+
+    function handlePointerLeave() {
+      setHoverCell(null);
+      onHoverChange(null);
+    }
+
+    function updateHover(cell: { x: number; y: number } | null) {
+      setHoverCell(cell);
+
+      if (!cell) {
+        onHoverChange(null);
+        return;
+      }
+
+      const colorIndex = beadGrid
+        ? beadGrid.cells[cell.y * beadGrid.width + cell.x]
+        : EMPTY_CELL;
+
+      onHoverChange({
+        x: cell.x,
+        y: cell.y,
+        colorIndex,
+      });
     }
 
     function getCellFromPointer(clientX: number, clientY: number) {
@@ -484,19 +602,22 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       const rect = canvasNode.getBoundingClientRect();
       const localX = ((clientX - rect.left) / rect.width) * CANVAS_SIZE;
       const localY = ((clientY - rect.top) / rect.height) * CANVAS_SIZE;
+      const paperLeft = RULER_SIZE + PAPER_PADDING;
+      const paperTop = RULER_SIZE + PAPER_PADDING;
+      const paperRight = CANVAS_SIZE - RULER_SIZE - PAPER_PADDING;
+      const paperBottom = CANVAS_SIZE - RULER_SIZE - PAPER_PADDING;
 
-      if (localX < RULER_SIZE || localY < RULER_SIZE) {
+      if (
+        localX < paperLeft ||
+        localY < paperTop ||
+        localX > paperRight ||
+        localY > paperBottom
+      ) {
         return null;
       }
 
-      const gridWidth = CANVAS_SIZE - RULER_SIZE;
-      const gridHeight = CANVAS_SIZE - RULER_SIZE;
-      const normalizedX = (localX - RULER_SIZE) / gridWidth;
-      const normalizedY = (localY - RULER_SIZE) / gridHeight;
-
-      if (normalizedX < 0 || normalizedY < 0 || normalizedX > 1 || normalizedY > 1) {
-        return null;
-      }
+      const normalizedX = (localX - paperLeft) / (paperRight - paperLeft);
+      const normalizedY = (localY - paperTop) / (paperBottom - paperTop);
 
       return {
         x: clampIndex(Math.floor(normalizedX * canvas.width), canvas.width),
@@ -506,13 +627,17 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
     const stageCursor = isPanning
       ? " canvas-stage-shell--dragging"
-      : isSpacePressed || activeTool === "pan"
+      : isSpacePressed
         ? " canvas-stage-shell--pan"
         : activeTool === "picker"
           ? " canvas-stage-shell--picker"
           : activeTool === "erase"
             ? " canvas-stage-shell--erase"
-            : " canvas-stage-shell--paint";
+            : activeTool === "fill"
+              ? " canvas-stage-shell--fill"
+              : activeTool === "select"
+                ? " canvas-stage-shell--select"
+                : " canvas-stage-shell--paint";
 
     return (
       <div
@@ -521,7 +646,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         onContextMenu={handleContextMenu}
         onPointerCancel={handlePointerUp}
         onPointerDown={handlePointerDown}
-        onPointerLeave={() => setHoverCell(null)}
+        onPointerLeave={handlePointerLeave}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onWheel={handleWheel}
@@ -548,4 +673,36 @@ function clampIndex(value: number, limit: number) {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function isCellInsideSelection(x: number, y: number, selection: RectSelection) {
+  const left = Math.min(selection.startX, selection.endX);
+  const top = Math.min(selection.startY, selection.endY);
+  const right = Math.max(selection.startX, selection.endX);
+  const bottom = Math.max(selection.startY, selection.endY);
+
+  return x >= left && x <= right && y >= top && y <= bottom;
+}
+
+function clampSelectionDelta(
+  selection: RectSelection,
+  deltaX: number,
+  deltaY: number,
+  width: number,
+  height: number,
+) {
+  const left = Math.min(selection.startX, selection.endX);
+  const top = Math.min(selection.startY, selection.endY);
+  const right = Math.max(selection.startX, selection.endX);
+  const bottom = Math.max(selection.startY, selection.endY);
+
+  const minDeltaX = -left;
+  const maxDeltaX = width - 1 - right;
+  const minDeltaY = -top;
+  const maxDeltaY = height - 1 - bottom;
+
+  return {
+    deltaX: clampNumber(deltaX, minDeltaX, maxDeltaX),
+    deltaY: clampNumber(deltaY, minDeltaY, maxDeltaY),
+  };
 }
