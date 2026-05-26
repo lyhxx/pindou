@@ -339,7 +339,8 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             onClick={() => setProjectInfoOpen(true)}
             type="button"
           >
-            {`拼豆工坊 v${APP_VERSION}`}
+            <span className="topbar__project-link-main">{`拼豆工坊 v${APP_VERSION}`}</span>
+            <span className="topbar__project-link-badge">反馈</span>
           </button>
         </div>
 
@@ -1106,6 +1107,8 @@ function ProjectInfoModal({
   feedbackEmail,
   version,
 }: ProjectInfoModalProps) {
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return;
@@ -1121,8 +1124,26 @@ function ProjectInfoModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!copied) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => setCopied(false), 1600);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+
   if (!open) {
     return null;
+  }
+
+  async function handleCopyEmail() {
+    try {
+      await navigator.clipboard.writeText(feedbackEmail);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
   }
 
   return (
@@ -1166,7 +1187,12 @@ function ProjectInfoModal({
               <strong>问题反馈</strong>
               <span>功能问题和使用建议可以发邮件</span>
             </div>
-            <a href={`mailto:${feedbackEmail}`}>{feedbackEmail}</a>
+            <div className="modal-sheet__actions">
+              <a href={`mailto:${feedbackEmail}`}>{feedbackEmail}</a>
+              <Button onClick={() => void handleCopyEmail()} size="compact" tone="editor">
+                {copied ? "已复制" : "复制邮箱"}
+              </Button>
+            </div>
           </div>
         </div>
       </section>

@@ -184,25 +184,55 @@ textarea:focus-visible {
 }
 
 .topbar__project-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  max-width: 100%;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(59, 52, 44, 0.08);
+  background: rgba(255, 255, 255, 0.58);
   color: var(--text-secondary);
   font-size: 11px;
   text-decoration: none;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
 }
 
 .topbar__project-link--button {
-  border: 0;
-  background: transparent;
-  padding: 0;
+  border: 1px solid rgba(59, 52, 44, 0.08);
   cursor: pointer;
 }
 
 .topbar__project-link:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.84);
+  border-color: rgba(59, 52, 44, 0.14);
+  text-decoration: none;
+}
+
+.topbar__project-link-main {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar__project-link-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(226, 104, 72, 0.14);
   color: var(--action-primary);
-  text-decoration: underline;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .brand-lockup {
@@ -1764,6 +1794,14 @@ textarea:focus-visible {
 
 .modal-sheet__block a:hover {
   text-decoration: underline;
+}
+
+.modal-sheet__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .modal-icon-button {
