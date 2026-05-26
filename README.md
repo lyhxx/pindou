@@ -46,6 +46,7 @@
 - 选区复制、剪切、粘贴、移动、填充、清空
 - 颜色替换，支持源色/目标色独立指定
 - 高级颜色启用/禁用控制
+- 编辑器顶部项目信息弹层，提供开源项目入口、版本号与反馈邮箱
 - 适应绘图、留白、居中整理
 - 撤销 / 重做
 - 本地缓存保存当前工程
@@ -60,16 +61,31 @@
 - `Canvas 2D`
 - 浏览器本地存储 `localStorage`
 
+## 开发提示
+
+- 本项目已内置 Codex 开发 skill：`skills/pindou-dev/`
+- 使用 Codex 或其他兼容 skill 的 AI 开发工具接手本项目时，优先加载这份 skill，再开始阅读代码和实现需求
+- skill 中已经整理了项目定位、产品约束、代码地图、验证要求和当前高优先级开发方向
+
 ## 目录结构
 
 ```text
+docs/
+  images/                   README 预览截图
+skills/
+  pindou-dev/               项目专用 Codex 开发 skill
+    agents/
+      openai.yaml           skill UI 元信息
+    SKILL.md                项目约束、代码地图、验证流程
 src/
   components/ui/            通用按钮、面板等基础 UI
   features/home/            首页与新建画布入口
-  features/editor/          编辑器主流程、状态、图纸生成、舞台组件
+  features/editor/          编辑器主流程、状态、图纸生成、舞台组件、图片预览
   features/palette/         拼豆颜色数据
   shared/types/             公共类型定义
   styles/                   tokens 与全局样式
+README.md                   项目说明、预览、路线图
+CHANGELOG.md                版本变更记录
 ```
 
 ## 本地开发

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be recorded in this document.
 
+## Unreleased
+
+### Added
+
+- README 增加线上地址、界面预览截图、项目 skill 使用提示和更新后的目录结构
+- 编辑器顶部品牌标题改为项目信息入口，弹层展示版本号、开源项目地址和反馈邮箱
+
+### Changed
+
+- 项目信息弹层关闭操作改为右上角图标按钮
+- 新建确认弹窗底部按钮统一为一致的编辑器紧凑样式
+
 ## 1.0.0 - 2026-05-26
 
 ### Added
@@ -30,4 +42,3 @@ All notable changes to this project will be recorded in this document.
 - 编辑器工作台高度与滚动边界问题
 - 画布缩放和平移误参与页面文档流的问题
 - 工具栏与侧栏多处重复、冗余、误导性交互
-

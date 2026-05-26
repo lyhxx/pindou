@@ -193,6 +193,13 @@ textarea:focus-visible {
   text-decoration: none;
 }
 
+.topbar__project-link--button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
 .topbar__project-link:hover {
   color: var(--action-primary);
   text-decoration: underline;
@@ -1680,6 +1687,10 @@ textarea:focus-visible {
   padding: 18px;
 }
 
+.modal-sheet--project-info {
+  width: min(520px, calc(100vw - 48px));
+}
+
 .modal-sheet__header,
 .modal-sheet__footer {
   display: flex;
@@ -1741,6 +1752,40 @@ textarea:focus-visible {
 .modal-sheet__tip {
   color: var(--text-secondary);
   font-size: 12px;
+}
+
+.modal-sheet__block a {
+  color: var(--action-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  text-decoration: none;
+  word-break: break-all;
+}
+
+.modal-sheet__block a:hover {
+  text-decoration: underline;
+}
+
+.modal-icon-button {
+  width: 28px;
+  height: 28px;
+  border: 1px solid rgba(59, 52, 44, 0.12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    border-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
+}
+
+.modal-icon-button:hover {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(59, 52, 44, 0.18);
+  color: var(--text-primary);
 }
 
 .preset-grid {

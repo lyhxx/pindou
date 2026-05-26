@@ -22,6 +22,7 @@ type EditorPageProps = {
 };
 
 const PROJECT_REPO_URL = "https://github.com/lyhxx/pindou";
+const FEEDBACK_EMAIL = "xihons@qq.com";
 const APP_VERSION = __APP_VERSION__;
 
 export function EditorPage({ onBackHome }: EditorPageProps) {
@@ -34,6 +35,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const [advancedPaletteOpen, setAdvancedPaletteOpen] = useState(false);
   const [createCanvasOpen, setCreateCanvasOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
+  const [projectInfoOpen, setProjectInfoOpen] = useState(false);
 
   const canvas = useEditorStore((state) => state.canvas);
   const sourceImage = useEditorStore((state) => state.sourceImage);
@@ -332,14 +334,13 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         </div>
 
         <div className="topbar__center">
-          <a
-            className="topbar__project-link"
-            href={PROJECT_REPO_URL}
-            rel="noreferrer"
-            target="_blank"
+          <button
+            className="topbar__project-link topbar__project-link--button"
+            onClick={() => setProjectInfoOpen(true)}
+            type="button"
           >
             {`拼豆工坊 v${APP_VERSION}`}
-          </a>
+          </button>
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
@@ -1010,6 +1011,13 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         }}
         open={confirmResetOpen}
       />
+      <ProjectInfoModal
+        feedbackEmail={FEEDBACK_EMAIL}
+        onClose={() => setProjectInfoOpen(false)}
+        open={projectInfoOpen}
+        repoUrl={PROJECT_REPO_URL}
+        version={APP_VERSION}
+      />
     </div>
   );
 }
@@ -1026,6 +1034,14 @@ type ConfirmResetModalProps = {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
+};
+
+type ProjectInfoModalProps = {
+  open: boolean;
+  onClose: () => void;
+  repoUrl: string;
+  feedbackEmail: string;
+  version: string;
 };
 
 function ConfirmResetModal({ open, onClose, onConfirm }: ConfirmResetModalProps) {
@@ -1070,12 +1086,89 @@ function ConfirmResetModal({ open, onClose, onConfirm }: ConfirmResetModalProps)
 
         <footer className="modal-sheet__footer">
           <div className="inline-actions">
-            <Button onClick={onClose}>取消</Button>
-            <Button onClick={onConfirm} tone="editor" variant="primary">
+            <Button onClick={onClose} size="compact" tone="editor">
+              取消
+            </Button>
+            <Button onClick={onConfirm} size="compact" tone="editor" variant="primary">
               继续新建
             </Button>
           </div>
         </footer>
+      </section>
+    </div>
+  );
+}
+
+function ProjectInfoModal({
+  open,
+  onClose,
+  repoUrl,
+  feedbackEmail,
+  version,
+}: ProjectInfoModalProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <section
+        aria-label="项目信息"
+        className="modal-sheet modal-sheet--project-info"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="modal-sheet__header">
+          <div>
+            <p className="modal-sheet__eyebrow">项目信息</p>
+            <h2 className="modal-sheet__title">拼豆工坊</h2>
+          </div>
+          <div className="inline-actions inline-actions--tight">
+            <span className="status-badge">{`v${version}`}</span>
+            <button
+              aria-label="关闭项目信息"
+              className="modal-icon-button"
+              onClick={onClose}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+        </header>
+
+        <div className="modal-sheet__body">
+          <div className="modal-sheet__block">
+            <div className="modal-sheet__block-head">
+              <strong>查看开源项目</strong>
+              <span>查看源码、版本记录与文档</span>
+            </div>
+            <a href={repoUrl} rel="noreferrer" target="_blank">
+              {repoUrl}
+            </a>
+          </div>
+
+          <div className="modal-sheet__block">
+            <div className="modal-sheet__block-head">
+              <strong>问题反馈</strong>
+              <span>功能问题和使用建议可以发邮件</span>
+            </div>
+            <a href={`mailto:${feedbackEmail}`}>{feedbackEmail}</a>
+          </div>
+        </div>
       </section>
     </div>
   );
