@@ -34,6 +34,12 @@ export function ImagePositionPreview({
     originOffsetY: number;
     boardScale: number;
   } | null>(null);
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchStateRef = useRef<{
+    pointerIds: [number, number];
+    originScale: number;
+    originDistance: number;
+  } | null>(null);
   const metricsRef = useRef({
     boardLeft: 0,
     boardTop: 0,
@@ -166,6 +172,25 @@ export function ImagePositionPreview({
       return;
     }
 
+    activePointersRef.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+    });
+
+    if (event.pointerType === "touch" && activePointersRef.current.size >= 2) {
+      const pair = getPointerPair(activePointersRef.current);
+      if (pair) {
+        pinchStateRef.current = {
+          pointerIds: [pair[0][0], pair[1][0]],
+          originScale: imageTransform.scale,
+          originDistance: getPointerDistance(pair[0][1], pair[1][1]),
+        };
+        dragStateRef.current = null;
+        setIsDragging(false);
+      }
+      return;
+    }
+
     dragStateRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -179,6 +204,30 @@ export function ImagePositionPreview({
   }
 
   function handlePointerMove(event: React.PointerEvent<HTMLCanvasElement>) {
+    if (activePointersRef.current.has(event.pointerId)) {
+      activePointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+    }
+
+    const pinchState = pinchStateRef.current;
+    if (pinchState) {
+      const [firstId, secondId] = pinchState.pointerIds;
+      const firstPointer = activePointersRef.current.get(firstId);
+      const secondPointer = activePointersRef.current.get(secondId);
+      if (firstPointer && secondPointer) {
+        const nextScale =
+          pinchState.originScale *
+          (getPointerDistance(firstPointer, secondPointer) / pinchState.originDistance);
+        onImageTransformChange({
+          scale: clampScale(nextScale),
+        });
+        event.preventDefault();
+      }
+      return;
+    }
+
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -194,6 +243,19 @@ export function ImagePositionPreview({
   }
 
   function handlePointerUp(event: React.PointerEvent<HTMLCanvasElement>) {
+    activePointersRef.current.delete(event.pointerId);
+
+    if (pinchStateRef.current) {
+      const [firstId, secondId] = pinchStateRef.current.pointerIds;
+      if (
+        event.pointerId === firstId ||
+        event.pointerId === secondId ||
+        activePointersRef.current.size < 2
+      ) {
+        pinchStateRef.current = null;
+      }
+    }
+
     const dragState = dragStateRef.current;
     if (!dragState || dragState.pointerId !== event.pointerId) {
       return;
@@ -234,8 +296,8 @@ export function ImagePositionPreview({
         width={PREVIEW_WIDTH}
       />
       <div className="image-preview__hint">
-        <span>拖拽移动</span>
-        <span>滚轮缩放</span>
+        <span>单指拖动</span>
+        <span>双指缩放</span>
       </div>
     </div>
   );
@@ -247,4 +309,17 @@ function clampScale(value: number) {
 
 function roundTransformValue(value: number) {
   return Number(value.toFixed(2));
+}
+
+function getPointerPair(pointers: Map<number, { x: number; y: number }>) {
+  const items = Array.from(pointers.entries());
+  if (items.length < 2) {
+    return null;
+  }
+
+  return [items[0], items[1]] as const;
+}
+
+function getPointerDistance(first: { x: number; y: number }, second: { x: number; y: number }) {
+  return Math.hypot(second.x - first.x, second.y - first.y);
 }

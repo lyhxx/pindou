@@ -36,6 +36,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const [createCanvasOpen, setCreateCanvasOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [projectInfoOpen, setProjectInfoOpen] = useState(false);
+  const [touchHelpOpen, setTouchHelpOpen] = useState(false);
 
   const canvas = useEditorStore((state) => state.canvas);
   const sourceImage = useEditorStore((state) => state.sourceImage);
@@ -100,6 +101,30 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   }, []);
 
   useEffect(() => {
+    function preventBrowserZoom(event: WheelEvent) {
+      if (event.ctrlKey) {
+        event.preventDefault();
+      }
+    }
+
+    function preventGestureZoom(event: Event) {
+      event.preventDefault();
+    }
+
+    document.addEventListener("wheel", preventBrowserZoom, { passive: false });
+    document.addEventListener("gesturestart", preventGestureZoom, { passive: false });
+    document.addEventListener("gesturechange", preventGestureZoom, { passive: false });
+    document.addEventListener("gestureend", preventGestureZoom, { passive: false });
+
+    return () => {
+      document.removeEventListener("wheel", preventBrowserZoom);
+      document.removeEventListener("gesturestart", preventGestureZoom);
+      document.removeEventListener("gesturechange", preventGestureZoom);
+      document.removeEventListener("gestureend", preventGestureZoom);
+    };
+  }, []);
+
+  useEffect(() => {
     setCanvasWidthInput(String(canvas.width));
     setCanvasHeightInput(String(canvas.height));
   }, [canvas.height, canvas.width]);
@@ -156,6 +181,9 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
           break;
         case "i":
           setTool("picker");
+          break;
+        case "h":
+          setTool("pan");
           break;
         case "f":
           setTool("fill");
@@ -345,6 +373,9 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
+          <Button onClick={() => setTouchHelpOpen(true)} size="compact" tone="editor">
+            触控帮助
+          </Button>
           <Button onClick={handleCreateCanvasRequest} size="compact" tone="editor" variant="primary">
             新建
           </Button>
@@ -434,7 +465,10 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 onImageTransformChange={setImageTransform}
                 sourceImage={sourceImage}
               />
-              <p className="muted-copy muted-copy--compact">滚轮缩放，拖拽移动。</p>
+              <div className="editor-touch-note">
+                <strong>图片手势</strong>
+                <span>桌面可滚轮缩放，平板可单指拖动、双指缩放。</span>
+              </div>
               <div className="image-controls">
                 <div className="image-controls__top">
                   <label className="field">
@@ -551,6 +585,18 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     variant={activeTool === "erase" ? "primary" : "secondary"}
                   >
                     橡皮
+                  </Button>
+                  <Button
+                    className={`stage-tool-button${
+                      activeTool === "pan" ? " stage-tool-button--active" : ""
+                    }`}
+                    onClick={() => setTool("pan")}
+                    size="compact"
+                    tone="editor"
+                    title="移动视图（H）"
+                    variant={activeTool === "pan" ? "primary" : "secondary"}
+                  >
+                    移动画布
                   </Button>
                   <Button
                     className={`stage-tool-button${
@@ -781,6 +827,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             <span>{`视图 ${stageViewport.scale.toFixed(2)}x`}</span>
             <span>{`已用 ${usedColorCount} 色`}</span>
             {selectionInfo ? <span>{`选区 ${selectionInfo.width} x ${selectionInfo.height}`}</span> : null}
+            <span className="stage-statusbar__hint">平板支持双指缩放/平移，也可切换到“移动画布”。</span>
           </footer>
         </section>
 
@@ -1019,6 +1066,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         repoUrl={PROJECT_REPO_URL}
         version={APP_VERSION}
       />
+      <TouchHelpModal onClose={() => setTouchHelpOpen(false)} open={touchHelpOpen} />
     </div>
   );
 }
@@ -1043,6 +1091,11 @@ type ProjectInfoModalProps = {
   repoUrl: string;
   feedbackEmail: string;
   version: string;
+};
+
+type TouchHelpModalProps = {
+  open: boolean;
+  onClose: () => void;
 };
 
 function ConfirmResetModal({ open, onClose, onConfirm }: ConfirmResetModalProps) {
@@ -1193,6 +1246,74 @@ function ProjectInfoModal({
                 {copied ? "已复制" : "复制邮箱"}
               </Button>
             </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function TouchHelpModal({ open, onClose }: TouchHelpModalProps) {
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, open]);
+
+  if (!open) {
+    return null;
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <section
+        aria-label="触控帮助"
+        className="modal-sheet modal-sheet--project-info"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="modal-sheet__header">
+          <div>
+            <p className="modal-sheet__eyebrow">平板使用</p>
+            <h2 className="modal-sheet__title">触控帮助</h2>
+          </div>
+          <button aria-label="关闭触控帮助" className="modal-icon-button" onClick={onClose} type="button">
+            ×
+          </button>
+        </header>
+
+        <div className="modal-sheet__body">
+          <div className="modal-sheet__block">
+            <div className="modal-sheet__block-head">
+              <strong>中间画布</strong>
+              <span>画布编辑和视图控制</span>
+            </div>
+            <ul className="touch-help-list">
+              <li>单指按当前工具绘制、填充、框选或吸色</li>
+              <li>双指捏合可缩放画布</li>
+              <li>双指拖动可平移画布</li>
+              <li>也可以切换到“移动画布”工具后单指拖动视图</li>
+            </ul>
+          </div>
+
+          <div className="modal-sheet__block">
+            <div className="modal-sheet__block-head">
+              <strong>图片预览</strong>
+              <span>导入图定位和缩放</span>
+            </div>
+            <ul className="touch-help-list">
+              <li>单指拖动图片位置</li>
+              <li>双指捏合缩放图片</li>
+              <li>调整完成后点击“生成图纸”才会更新画布</li>
+            </ul>
           </div>
         </div>
       </section>

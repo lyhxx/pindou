@@ -282,8 +282,8 @@ textarea:focus-visible {
 }
 
 .button--compact {
-  min-height: 28px;
-  padding: 0 9px;
+  min-height: 30px;
+  padding: 0 10px;
   border-radius: var(--radius-md);
   font-size: 12px;
 }
@@ -323,8 +323,8 @@ textarea:focus-visible {
 }
 
 .button--tone-editor.button--compact {
-  min-height: 26px;
-  padding: 0 8px;
+  min-height: 30px;
+  padding: 0 10px;
 }
 
 .button--tone-editor.button--secondary,
@@ -721,10 +721,10 @@ textarea:focus-visible {
 }
 
 .stage-tool-button {
-  min-height: 24px;
-  padding-inline: 7px;
+  min-height: 30px;
+  padding-inline: 10px;
   border-radius: 7px;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .stage-tool-button--active {
@@ -837,10 +837,15 @@ textarea:focus-visible {
 .stage-statusbar {
   justify-content: flex-start;
   color: var(--text-secondary);
-  font-size: 10px;
+  font-size: 11px;
   gap: 10px;
   padding: 4px 8px;
-  min-height: 24px;
+  min-height: 30px;
+  flex-wrap: wrap;
+}
+
+.stage-statusbar__hint {
+  color: var(--text-muted);
 }
 
 .info-list {
@@ -1108,6 +1113,7 @@ textarea:focus-visible {
   cursor: grab;
   user-select: none;
   overscroll-behavior: contain;
+  touch-action: none;
 }
 
 .image-preview__canvas {
@@ -1126,6 +1132,26 @@ textarea:focus-visible {
   padding: 6px 8px 8px;
   color: var(--text-muted);
   font-size: 11px;
+}
+
+.editor-touch-note {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 8px;
+  border: 1px solid rgba(59, 52, 44, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.42);
+}
+
+.editor-touch-note strong {
+  font-size: 12px;
+}
+
+.editor-touch-note span {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.4;
 }
 
 .current-color {
@@ -1387,12 +1413,12 @@ textarea:focus-visible {
 
 .palette-swatch {
   display: grid;
-  grid-template-columns: 12px 1fr auto;
+  grid-template-columns: 14px 1fr auto;
   gap: 4px;
   align-items: center;
-  min-height: 26px;
+  min-height: 32px;
   width: 100%;
-  padding: 4px 5px;
+  padding: 5px 6px;
   border: 1px solid var(--border-control);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.56);
@@ -1401,9 +1427,9 @@ textarea:focus-visible {
 }
 
 .palette-swatch--dense {
-  grid-template-columns: 10px 1fr auto;
-  min-height: 22px;
-  padding: 3px 4px;
+  grid-template-columns: 12px 1fr auto;
+  min-height: 28px;
+  padding: 4px 5px;
   border-radius: 6px;
 }
 
@@ -1412,8 +1438,8 @@ textarea:focus-visible {
 }
 
 .palette-swatch__chip {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
   border-radius: 999px;
   border: 1px solid rgba(38, 34, 28, 0.14);
 }
@@ -1433,8 +1459,8 @@ textarea:focus-visible {
 }
 
 .palette-swatch__toggle input {
-  width: 11px;
-  height: 11px;
+  width: 14px;
+  height: 14px;
   margin: 0;
   accent-color: var(--action-secondary);
 }
@@ -1669,15 +1695,15 @@ textarea:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   margin-left: 4px;
   border-radius: 999px;
   background: rgba(47, 143, 131, 0.14);
   border: 1px solid rgba(47, 143, 131, 0.28);
   color: var(--action-secondary);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
   cursor: help;
 }
@@ -1804,6 +1830,18 @@ textarea:focus-visible {
   flex-wrap: wrap;
 }
 
+.touch-help-list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.touch-help-list li + li {
+  margin-top: 4px;
+}
+
 .modal-icon-button {
   width: 28px;
   height: 28px;
@@ -1925,6 +1963,19 @@ textarea:focus-visible {
   .topbar--editor .topbar__center,
   .topbar--editor .topbar__actions {
     justify-content: flex-start;
+  }
+
+  .topbar__actions--editor {
+    gap: 8px;
+  }
+
+  .stage-statusbar {
+    gap: 8px;
+    padding: 6px 8px;
+  }
+
+  .stage-statusbar__hint {
+    width: 100%;
   }
 
   .export-actions__primary--inline,

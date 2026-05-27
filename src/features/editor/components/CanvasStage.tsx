@@ -75,6 +75,15 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       originOffsetX: number;
       originOffsetY: number;
     } | null>(null);
+    const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+    const gestureStateRef = useRef<{
+      pointerIds: [number, number];
+      originScale: number;
+      originOffsetX: number;
+      originOffsetY: number;
+      originDistance: number;
+      originMidpoint: { x: number; y: number };
+    } | null>(null);
     const selectStateRef = useRef<{
       pointerId: number;
       startCell: { x: number; y: number };
@@ -354,7 +363,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       paperLeft: number,
       paperTop: number,
     ) {
-      if (!cell || activeTool === "select") {
+      if (!cell || activeTool === "select" || activeTool === "pan") {
         return;
       }
 
@@ -406,7 +415,28 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }
 
     function handlePointerDown(event: React.PointerEvent<HTMLDivElement>) {
-      const shouldPan = isSpacePressed || event.button === 1;
+      activePointersRef.current.set(event.pointerId, {
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      if (event.pointerType === "touch" && activePointersRef.current.size >= 2) {
+        const gestureState = createGestureState(
+          activePointersRef.current,
+          stageViewport,
+          shellRef.current,
+        );
+        if (gestureState) {
+          panStateRef.current = null;
+          selectStateRef.current = null;
+          gestureStateRef.current = gestureState;
+          setIsPanning(true);
+          event.preventDefault();
+        }
+        return;
+      }
+
+      const shouldPan = isSpacePressed || activeTool === "pan" || event.button === 1;
 
       if (shouldPan) {
         panStateRef.current = {
@@ -479,6 +509,27 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }
 
     function handlePointerMove(event: React.PointerEvent<HTMLDivElement>) {
+      if (activePointersRef.current.has(event.pointerId)) {
+        activePointersRef.current.set(event.pointerId, {
+          x: event.clientX,
+          y: event.clientY,
+        });
+      }
+
+      const gestureState = gestureStateRef.current;
+      if (gestureState && activePointersRef.current.size >= 2) {
+        const nextTransform = resolveGestureTransform(
+          gestureState,
+          activePointersRef.current,
+          shellRef.current,
+        );
+        if (nextTransform) {
+          onViewportChange(nextTransform);
+          event.preventDefault();
+        }
+        return;
+      }
+
       const cell = getCellFromPointer(event.clientX, event.clientY);
       updateHover(cell);
 
@@ -536,6 +587,21 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }
 
     function handlePointerUp(event: React.PointerEvent<HTMLDivElement>) {
+      activePointersRef.current.delete(event.pointerId);
+
+      const gestureState = gestureStateRef.current;
+      if (gestureState) {
+        const [pointerA, pointerB] = gestureState.pointerIds;
+        if (
+          event.pointerId === pointerA ||
+          event.pointerId === pointerB ||
+          activePointersRef.current.size < 2
+        ) {
+          gestureStateRef.current = null;
+          setIsPanning(false);
+        }
+      }
+
       const panState = panStateRef.current;
       if (panState && panState.pointerId === event.pointerId) {
         panStateRef.current = null;
@@ -629,7 +695,9 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       ? " canvas-stage-shell--dragging"
       : isSpacePressed
         ? " canvas-stage-shell--pan"
-        : activeTool === "picker"
+        : activeTool === "pan"
+          ? " canvas-stage-shell--pan"
+          : activeTool === "picker"
           ? " canvas-stage-shell--picker"
           : activeTool === "erase"
             ? " canvas-stage-shell--erase"
@@ -704,5 +772,88 @@ function clampSelectionDelta(
   return {
     deltaX: clampNumber(deltaX, minDeltaX, maxDeltaX),
     deltaY: clampNumber(deltaY, minDeltaY, maxDeltaY),
+  };
+}
+
+function createGestureState(
+  pointers: Map<number, { x: number; y: number }>,
+  viewport: ViewTransform,
+  shellNode: HTMLDivElement | null,
+) {
+  const pair = getPointerPair(pointers);
+  if (!pair || !shellNode) {
+    return null;
+  }
+
+  const [firstPointer, secondPointer] = pair;
+  const midpoint = getShellRelativeMidpoint(firstPointer[1], secondPointer[1], shellNode);
+
+  return {
+    pointerIds: [firstPointer[0], secondPointer[0]] as [number, number],
+    originScale: viewport.scale,
+    originOffsetX: viewport.offsetX,
+    originOffsetY: viewport.offsetY,
+    originDistance: getPointerDistance(firstPointer[1], secondPointer[1]),
+    originMidpoint: midpoint,
+  };
+}
+
+function resolveGestureTransform(
+  gestureState: {
+    pointerIds: [number, number];
+    originScale: number;
+    originOffsetX: number;
+    originOffsetY: number;
+    originDistance: number;
+    originMidpoint: { x: number; y: number };
+  },
+  pointers: Map<number, { x: number; y: number }>,
+  shellNode: HTMLDivElement | null,
+) {
+  const [firstId, secondId] = gestureState.pointerIds;
+  const firstPointer = pointers.get(firstId);
+  const secondPointer = pointers.get(secondId);
+
+  if (!firstPointer || !secondPointer || !shellNode) {
+    return null;
+  }
+
+  const nextMidpoint = getShellRelativeMidpoint(firstPointer, secondPointer, shellNode);
+  const distanceRatio = getPointerDistance(firstPointer, secondPointer) / gestureState.originDistance;
+  const nextScale = clampNumber(gestureState.originScale * distanceRatio, 0.35, 8);
+  const worldX =
+    (gestureState.originMidpoint.x - gestureState.originOffsetX) / gestureState.originScale;
+  const worldY =
+    (gestureState.originMidpoint.y - gestureState.originOffsetY) / gestureState.originScale;
+
+  return {
+    scale: nextScale,
+    offsetX: nextMidpoint.x - worldX * nextScale,
+    offsetY: nextMidpoint.y - worldY * nextScale,
+  };
+}
+
+function getPointerPair(pointers: Map<number, { x: number; y: number }>) {
+  const items = Array.from(pointers.entries());
+  if (items.length < 2) {
+    return null;
+  }
+
+  return [items[0], items[1]] as const;
+}
+
+function getPointerDistance(first: { x: number; y: number }, second: { x: number; y: number }) {
+  return Math.hypot(second.x - first.x, second.y - first.y);
+}
+
+function getShellRelativeMidpoint(
+  first: { x: number; y: number },
+  second: { x: number; y: number },
+  shellNode: HTMLDivElement,
+) {
+  const rect = shellNode.getBoundingClientRect();
+  return {
+    x: (first.x + second.x) / 2 - rect.left - rect.width / 2,
+    y: (first.y + second.y) / 2 - rect.top - rect.height / 2,
   };
 }
