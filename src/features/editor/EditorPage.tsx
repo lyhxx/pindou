@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { PanelCard } from "../../components/ui/PanelCard";
 import type { BeadGrid, RectSelection } from "../../shared/types/project";
@@ -9,6 +9,16 @@ import { CanvasStage } from "./components/CanvasStage";
 import { ImagePositionPreview } from "./components/ImagePositionPreview";
 import { ImageUploadField } from "./components/ImageUploadField";
 import { useEditorStore } from "./editorStore";
+import {
+  buildHelpSearchText,
+  defaultEditorHelpArticleId,
+  editorHelpArticleMap,
+  editorHelpArticles,
+  editorHelpGroups,
+  editorHelpLinks,
+  editorUiCopy,
+  type EditorHelpArticleId,
+} from "./helpContent";
 import {
   buildColorStats,
   exportColorListText,
@@ -36,7 +46,10 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const [createCanvasOpen, setCreateCanvasOpen] = useState(false);
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [projectInfoOpen, setProjectInfoOpen] = useState(false);
-  const [touchHelpOpen, setTouchHelpOpen] = useState(false);
+  const [helpCenterOpen, setHelpCenterOpen] = useState(false);
+  const [helpCenterArticleId, setHelpCenterArticleId] = useState<EditorHelpArticleId>(
+    defaultEditorHelpArticleId,
+  );
 
   const canvas = useEditorStore((state) => state.canvas);
   const sourceImage = useEditorStore((state) => state.sourceImage);
@@ -236,7 +249,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     : enabledPaletteIds.length === 0
       ? "请至少启用一种颜色"
       : null;
-  const arrangeReason = beadGrid ? null : "生成图纸后可用";
   const exportReason = beadGrid ? null : "当前还没有图纸结果";
   const replaceReason = !beadGrid
     ? "生成图纸后可替换颜色"
@@ -351,6 +363,11 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     setCreateCanvasOpen(false);
   }
 
+  function openHelpArticle(articleId: EditorHelpArticleId) {
+    setHelpCenterArticleId(articleId);
+    setHelpCenterOpen(true);
+  }
+
   return (
     <div className="app-shell app-shell--editor">
       <header className="topbar topbar--editor">
@@ -373,8 +390,8 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
-          <Button onClick={() => setTouchHelpOpen(true)} size="compact" tone="editor">
-            触控帮助
+          <Button onClick={() => openHelpArticle(editorHelpLinks.topbar)} size="compact" tone="editor">
+            帮助
           </Button>
           <Button onClick={handleCreateCanvasRequest} size="compact" tone="editor" variant="primary">
             新建
@@ -390,7 +407,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 <label className="field">
                   <span>
                     宽度
-                    <HelpHint tip="单位是格。输入后按回车或失焦生效。" />
+                    <HelpHint articleId={editorHelpLinks.canvasSize} onOpenArticle={openHelpArticle} />
                   </span>
                   <input
                     className="field__input"
@@ -466,8 +483,15 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 sourceImage={sourceImage}
               />
               <div className="editor-touch-note">
-                <strong>图片手势</strong>
-                <span>桌面可滚轮缩放，平板可单指拖动、双指缩放。</span>
+                <strong>{editorUiCopy.touchImageNoteTitle}</strong>
+                <span>{editorUiCopy.touchImageNoteText}</span>
+                <button
+                  className="inline-help-link"
+                  onClick={() => openHelpArticle(editorHelpLinks.touchImage)}
+                  type="button"
+                >
+                  查看说明
+                </button>
               </div>
               <div className="image-controls">
                 <div className="image-controls__top">
@@ -510,7 +534,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 <label className="field">
                   <span>
                     抖动
-                    <HelpHint tip="开启后会用误差扩散保留渐变细节，但颗粒感会更强。" />
+                    <HelpHint articleId={editorHelpLinks.dithering} onOpenArticle={openHelpArticle} />
                   </span>
                   <select
                     className="field__input"
@@ -527,7 +551,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 <label className="field">
                   <span>
                     去背景
-                    <HelpHint tip="按四角背景色估算并清除接近背景的像素，适合纯色背景图片。" />
+                    <HelpHint articleId={editorHelpLinks.removeBackground} onOpenArticle={openHelpArticle} />
                   </span>
                   <label className="toggle-row">
                     <input
@@ -543,7 +567,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
               <label className="field">
                 <span>
                   背景容差 {processing.tolerance}
-                  <HelpHint tip="数值越大，越容易把接近背景色的边缘一起去掉。" />
+                  <HelpHint articleId={editorHelpLinks.tolerance} onOpenArticle={openHelpArticle} />
                 </span>
                 <input
                   className="field__range"
@@ -593,7 +617,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     onClick={() => setTool("pan")}
                     size="compact"
                     tone="editor"
-                    title="移动视图（H）"
                     variant={activeTool === "pan" ? "primary" : "secondary"}
                   >
                     移动画布
@@ -655,7 +678,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     disabled={!beadGrid}
                     onClick={trimToDrawing}
                     size="compact"
-                    title={arrangeReason ?? undefined}
                     tone="editor"
                   >
                     适应绘图
@@ -665,7 +687,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     disabled={!beadGrid}
                     onClick={() => wrapDrawingWithPadding(4)}
                     size="compact"
-                    title={arrangeReason ?? undefined}
                     tone="editor"
                   >
                     留白 4 格
@@ -675,12 +696,19 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     disabled={!beadGrid}
                     onClick={centerDrawing}
                     size="compact"
-                    title={arrangeReason ?? undefined}
                     tone="editor"
                   >
                     居中内容
                   </Button>
                 </div>
+                <button
+                  aria-label="查看工具说明"
+                  className="stage-toolbar__help-trigger"
+                  onClick={() => openHelpArticle(editorHelpLinks.toolbar)}
+                  type="button"
+                >
+                  ?
+                </button>
               </div>
             </div>
 
@@ -766,8 +794,8 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             <div className="stage-frame__canvas">
               {!sourceImage && !beadGrid ? (
                 <div className="stage-empty-state">
-                  <strong>进入工作台后开始</strong>
-                  <p>在左侧上传图片生成图纸，或直接在当前空白画布上开始绘制。</p>
+                  <strong>{editorUiCopy.stageEmptyTitle}</strong>
+                  <p>{editorUiCopy.stageEmptyText}</p>
                 </div>
               ) : null}
               <CanvasStage
@@ -836,7 +864,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             <PanelCard eyebrow="Advanced" title="" tone="editor">
               <div className="panel-inline-title">
                 <strong>高级颜色</strong>
-                <HelpHint tip="全启用表示生成图纸时可从所有颜色里匹配；全禁用会禁用大部分颜色，仅保留当前编辑色，便于快速限定可用色。" />
+                <HelpHint articleId={editorHelpLinks.advancedPalette} onOpenArticle={openHelpArticle} />
               </div>
               <div className="current-color current-color--compact current-color--compact-inline current-color--sidebar current-color--sidebar-tight">
                 <div
@@ -873,7 +901,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                           setActiveColorId(color.id);
                           applyReplaceSlotColor(color.id);
                         }}
-                        title={`${color.id} ${color.name}`}
                         type="button"
                       >
                         <span className="palette-swatch__chip" style={{ background: color.hex }} />
@@ -1066,16 +1093,32 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         repoUrl={PROJECT_REPO_URL}
         version={APP_VERSION}
       />
-      <TouchHelpModal onClose={() => setTouchHelpOpen(false)} open={touchHelpOpen} />
+      <HelpCenterModal
+        activeArticleId={helpCenterArticleId}
+        onClose={() => setHelpCenterOpen(false)}
+        onSelectArticle={setHelpCenterArticleId}
+        open={helpCenterOpen}
+      />
     </div>
   );
 }
 
-function HelpHint({ tip }: { tip: string }) {
+function HelpHint({
+  articleId,
+  onOpenArticle,
+}: {
+  articleId: EditorHelpArticleId;
+  onOpenArticle: (articleId: EditorHelpArticleId) => void;
+}) {
   return (
-    <span className="help-hint" role="note" tabIndex={0} title={tip}>
+    <button
+      aria-label={`查看${editorHelpArticleMap[articleId].title}说明`}
+      className="help-hint"
+      onClick={() => onOpenArticle(articleId)}
+      type="button"
+    >
       ?
-    </span>
+    </button>
   );
 }
 
@@ -1093,9 +1136,11 @@ type ProjectInfoModalProps = {
   version: string;
 };
 
-type TouchHelpModalProps = {
+type HelpCenterModalProps = {
   open: boolean;
   onClose: () => void;
+  activeArticleId: EditorHelpArticleId;
+  onSelectArticle: (articleId: EditorHelpArticleId) => void;
 };
 
 function ConfirmResetModal({ open, onClose, onConfirm }: ConfirmResetModalProps) {
@@ -1253,7 +1298,15 @@ function ProjectInfoModal({
   );
 }
 
-function TouchHelpModal({ open, onClose }: TouchHelpModalProps) {
+function HelpCenterModal({
+  open,
+  onClose,
+  activeArticleId,
+  onSelectArticle,
+}: HelpCenterModalProps) {
+  const [query, setQuery] = useState("");
+  const searchInputId = useId();
+
   useEffect(() => {
     if (!open) {
       return;
@@ -1269,51 +1322,121 @@ function TouchHelpModal({ open, onClose }: TouchHelpModalProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose, open]);
 
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+    }
+  }, [open]);
+
   if (!open) {
     return null;
   }
 
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredArticles = normalizedQuery
+    ? editorHelpArticles.filter((article) => buildHelpSearchText(article).includes(normalizedQuery))
+    : editorHelpArticles;
+  const activeArticle =
+    filteredArticles.find((article) => article.id === activeArticleId) ??
+    editorHelpArticleMap[activeArticleId] ??
+    editorHelpArticleMap[defaultEditorHelpArticleId];
+  const visibleArticleIds = new Set(filteredArticles.map((article) => article.id));
+  const groupedArticles = editorHelpGroups
+    .map((group) => ({
+      group,
+      articles: editorHelpArticles.filter(
+        (article) => article.groupId === group.id && visibleArticleIds.has(article.id),
+      ),
+    }))
+    .filter((entry) => entry.articles.length > 0);
+
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
       <section
-        aria-label="触控帮助"
-        className="modal-sheet modal-sheet--project-info"
+        aria-label="帮助中心"
+        className="modal-sheet modal-sheet--help-center"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-sheet__header">
           <div>
-            <p className="modal-sheet__eyebrow">平板使用</p>
-            <h2 className="modal-sheet__title">触控帮助</h2>
+            <p className="modal-sheet__eyebrow">{editorUiCopy.helpCenterEyebrow}</p>
+            <h2 className="modal-sheet__title">{editorUiCopy.helpCenterTitle}</h2>
           </div>
-          <button aria-label="关闭触控帮助" className="modal-icon-button" onClick={onClose} type="button">
+          <button aria-label="关闭帮助中心" className="modal-icon-button" onClick={onClose} type="button">
             ×
           </button>
         </header>
 
-        <div className="modal-sheet__body">
-          <div className="modal-sheet__block">
-            <div className="modal-sheet__block-head">
-              <strong>中间画布</strong>
-              <span>画布编辑和视图控制</span>
-            </div>
-            <ul className="touch-help-list">
-              <li>单指按当前工具绘制、填充、框选或吸色</li>
-              <li>双指捏合可缩放画布</li>
-              <li>双指拖动可平移画布</li>
-              <li>也可以切换到“移动画布”工具后单指拖动视图</li>
-            </ul>
-          </div>
+        <div className="help-center">
+          <aside className="help-center__sidebar">
+            <label className="help-center__search" htmlFor={searchInputId}>
+              <span>搜索</span>
+              <input
+                id={searchInputId}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={editorUiCopy.helpCenterSearchPlaceholder}
+                type="search"
+                value={query}
+              />
+            </label>
 
-          <div className="modal-sheet__block">
-            <div className="modal-sheet__block-head">
-              <strong>图片预览</strong>
-              <span>导入图定位和缩放</span>
+            <div className="help-center__nav">
+              {groupedArticles.length > 0 ? (
+                groupedArticles.map(({ group, articles }) => (
+                  <div key={group.id} className="help-center__nav-group">
+                    <p className="help-center__nav-title">{group.title}</p>
+                    <div className="help-center__nav-items">
+                      {articles.map((article) => (
+                        <button
+                          key={article.id}
+                          className={`help-center__nav-item${
+                            activeArticle.id === article.id ? " help-center__nav-item--active" : ""
+                          }`}
+                          onClick={() => onSelectArticle(article.id)}
+                          type="button"
+                        >
+                          <strong>{article.title}</strong>
+                          <span>{article.summary}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="help-center__empty">
+                  <strong>{editorUiCopy.helpCenterEmptyTitle}</strong>
+                  <p>{editorUiCopy.helpCenterEmptyText}</p>
+                </div>
+              )}
             </div>
-            <ul className="touch-help-list">
-              <li>单指拖动图片位置</li>
-              <li>双指捏合缩放图片</li>
-              <li>调整完成后点击“生成图纸”才会更新画布</li>
-            </ul>
+          </aside>
+
+          <div className="help-center__content">
+            <div className="help-center__article-head">
+              <span className="status-badge">
+                {editorHelpGroups.find((group) => group.id === activeArticle.groupId)?.title}
+              </span>
+              <h3>{activeArticle.title}</h3>
+              <p>{activeArticle.summary}</p>
+            </div>
+
+            <div className="help-center__article-body">
+              {activeArticle.sections.map((section) => (
+                <section key={section.title} className="help-center__section">
+                  <h4>{section.title}</h4>
+                  {section.paragraphs?.map((paragraph) => (
+                    <p key={paragraph}>{paragraph}</p>
+                  ))}
+                  {section.items?.length ? (
+                    <ul className="touch-help-list">
+                      {section.items.map((item) => (
+                        <li key={item}>{item}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </section>
+              ))}
+            </div>
           </div>
         </div>
       </section>
