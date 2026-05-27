@@ -1089,6 +1089,10 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       <ProjectInfoModal
         feedbackEmail={FEEDBACK_EMAIL}
         onClose={() => setProjectInfoOpen(false)}
+        onOpenHelpCenter={() => {
+          setProjectInfoOpen(false);
+          openHelpArticle(editorHelpLinks.topbar);
+        }}
         open={projectInfoOpen}
         repoUrl={PROJECT_REPO_URL}
         version={APP_VERSION}
@@ -1134,6 +1138,7 @@ type ProjectInfoModalProps = {
   repoUrl: string;
   feedbackEmail: string;
   version: string;
+  onOpenHelpCenter: () => void;
 };
 
 type HelpCenterModalProps = {
@@ -1204,6 +1209,7 @@ function ProjectInfoModal({
   repoUrl,
   feedbackEmail,
   version,
+  onOpenHelpCenter,
 }: ProjectInfoModalProps) {
   const [copied, setCopied] = useState(false);
 
@@ -1270,6 +1276,18 @@ function ProjectInfoModal({
         </header>
 
         <div className="modal-sheet__body">
+          <div className="modal-sheet__block">
+            <div className="modal-sheet__block-head">
+              <strong>帮助与使用说明</strong>
+              <span>查看完整工具说明、快捷键和触控操作</span>
+            </div>
+            <div className="modal-sheet__actions">
+              <Button onClick={onOpenHelpCenter} size="compact" tone="editor" variant="primary">
+                查看全部帮助
+              </Button>
+            </div>
+          </div>
+
           <div className="modal-sheet__block">
             <div className="modal-sheet__block-head">
               <strong>查看开源项目</strong>
@@ -1395,8 +1413,8 @@ function HelpCenterModal({
                           onClick={() => onSelectArticle(article.id)}
                           type="button"
                         >
-                          <strong>{article.title}</strong>
-                          <span>{article.summary}</span>
+                          <strong>{renderHighlightedText(article.title, normalizedQuery)}</strong>
+                          <span>{renderHighlightedText(article.summary, normalizedQuery)}</span>
                         </button>
                       ))}
                     </div>
@@ -1416,21 +1434,21 @@ function HelpCenterModal({
               <span className="status-badge">
                 {editorHelpGroups.find((group) => group.id === activeArticle.groupId)?.title}
               </span>
-              <h3>{activeArticle.title}</h3>
-              <p>{activeArticle.summary}</p>
+              <h3>{renderHighlightedText(activeArticle.title, normalizedQuery)}</h3>
+              <p>{renderHighlightedText(activeArticle.summary, normalizedQuery)}</p>
             </div>
 
             <div className="help-center__article-body">
               {activeArticle.sections.map((section) => (
                 <section key={section.title} className="help-center__section">
-                  <h4>{section.title}</h4>
+                  <h4>{renderHighlightedText(section.title, normalizedQuery)}</h4>
                   {section.paragraphs?.map((paragraph) => (
-                    <p key={paragraph}>{paragraph}</p>
+                    <p key={paragraph}>{renderHighlightedText(paragraph, normalizedQuery)}</p>
                   ))}
                   {section.items?.length ? (
                     <ul className="touch-help-list">
                       {section.items.map((item) => (
-                        <li key={item}>{item}</li>
+                        <li key={item}>{renderHighlightedText(item, normalizedQuery)}</li>
                       ))}
                     </ul>
                   ) : null}
@@ -1450,6 +1468,34 @@ function DisabledHint({ reason }: { reason: string | null }) {
   }
 
   return <p className="disabled-hint">{reason}</p>;
+}
+
+function renderHighlightedText(text: string, query: string) {
+  if (!query) {
+    return text;
+  }
+
+  const escapedQuery = escapeRegExp(query);
+  const matcher = new RegExp(`(${escapedQuery})`, "ig");
+  const parts = text.split(matcher);
+
+  if (parts.length === 1) {
+    return text;
+  }
+
+  return parts.map((part, index) =>
+    part.toLowerCase() === query.toLowerCase() ? (
+      <mark key={`${part}-${index}`} className="help-highlight">
+        {part}
+      </mark>
+    ) : (
+      <span key={`${part}-${index}`}>{part}</span>
+    ),
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function countUsedColors(beadGrid: BeadGrid | null) {

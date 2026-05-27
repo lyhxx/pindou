@@ -7,11 +7,12 @@ export type EditorHelpArticleId =
   | "background-tolerance"
   | "advanced-palette"
   | "edit-tools"
+  | "shortcuts"
   | "arrange-tools"
   | "touch-canvas"
   | "touch-image";
 
-export type EditorHelpGroupId = "getting-started" | "image" | "colors" | "canvas";
+export type EditorHelpGroupId = "getting-started" | "image" | "colors" | "canvas" | "shortcuts";
 
 export type EditorHelpArticleSection = {
   title: string;
@@ -38,6 +39,7 @@ export const editorHelpGroups: EditorHelpGroup[] = [
   { id: "image", title: "图片生成" },
   { id: "colors", title: "颜色与替换" },
   { id: "canvas", title: "画布编辑" },
+  { id: "shortcuts", title: "快捷键" },
 ];
 
 export const editorHelpArticles: EditorHelpArticle[] = [
@@ -208,12 +210,35 @@ export const editorHelpArticles: EditorHelpArticle[] = [
           "框选：选中一块区域后复制、移动、清空。",
         ],
       },
+    ],
+  },
+  {
+    id: "shortcuts",
+    groupId: "shortcuts",
+    title: "快捷键总览",
+    summary: "常用工具、视图和选区操作都支持键盘快捷键，桌面端效率更高。",
+    keywords: ["快捷键", "热键", "键盘", "撤销", "重做", "复制", "粘贴", "工具切换"],
+    sections: [
       {
-        title: "快捷键",
+        title: "工具切换",
         items: [
           "B 画笔，E 橡皮，H 移动画布，I 吸色，F 填充，V 框选。",
-          "Ctrl 或 Command + Z 撤销，Shift + Ctrl 或 Command + Z 重做。",
+        ],
+      },
+      {
+        title: "编辑操作",
+        items: [
+          "Ctrl 或 Command + Z 撤销。",
+          "Shift + Ctrl 或 Command + Z 重做。",
           "Ctrl 或 Command + C / X / V 支持复制、剪切、粘贴选区。",
+          "Esc 取消当前选区。",
+        ],
+      },
+      {
+        title: "视图控制",
+        items: [
+          "G 显示或隐藏网格。",
+          "0 复位视图缩放和平移。",
         ],
       },
     ],
@@ -295,6 +320,7 @@ export const editorHelpLinks = {
   tolerance: "background-tolerance",
   advancedPalette: "advanced-palette",
   toolbar: "edit-tools",
+  shortcuts: "shortcuts",
   arrangeTools: "arrange-tools",
   touchCanvas: "touch-canvas",
   touchImage: "touch-image",
