@@ -1,5 +1,6 @@
 ﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
+import { BrandMark } from "../../components/ui/BrandMark";
 import { PanelCard } from "../../components/ui/PanelCard";
 import { notifyError } from "../../shared/notifications/notificationStore";
 import type { BeadGrid, RectSelection } from "../../shared/types/project";
@@ -465,6 +466,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             onClick={() => setProjectInfoOpen(true)}
             type="button"
           >
+            <BrandMark alt="" className="topbar__project-logo" />
             <span className={`topbar__project-link-main-badge${
               hasUnreadUpdateNotice
                 ? " topbar__project-link-main-badge--warning"
@@ -941,14 +943,14 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         <aside className="editor-sidebar editor-sidebar--right">
           <div className="editor-panel-group">
             <PanelCard
-              eyebrow="Advanced"
+              eyebrow="调色"
               title="高级颜色"
               titleAction={<HelpHint articleId={editorHelpLinks.advancedPalette} onOpenArticle={openHelpArticle} />}
               tone="editor"
             >
-              <div className="current-color current-color--compact current-color--compact-inline current-color--sidebar current-color--sidebar-tight">
+              <div className="current-color current-color--compact current-color--compact-inline current-color--sidebar current-color--sidebar-tight current-color--palette-head">
                 <div
-                  className="current-color__swatch current-color__swatch--dense"
+                  className="current-color__swatch current-color__swatch--dense current-color__swatch--palette-head"
                   style={{ background: activeColor.hex }}
                 />
                 <div className="current-color__meta">
@@ -956,14 +958,14 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     {activeColor.id} {activeColor.name}
                   </strong>
                   <p>
-                    可用 {enabledPaletteIds.length}/{defaultPalette.length}
+                    已启用 {enabledPaletteIds.length}/{defaultPalette.length}
                   </p>
                 </div>
               </div>
 
-              <div className="palette-matrix palette-matrix--dense palette-matrix--preview">
+              <div className="palette-matrix palette-matrix--dense palette-matrix--preview palette-matrix--sidebar">
                 {defaultPalette
-                  .slice(0, advancedPaletteOpen ? defaultPalette.length : 15)
+                  .slice(0, advancedPaletteOpen ? defaultPalette.length : 8)
                   .map((color) => {
                     const enabled = enabledPaletteIds.includes(color.id);
                     const active = color.id === activeColorId;
@@ -971,9 +973,10 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     return (
                       <button
                         key={color.id}
-                        className={`palette-swatch palette-swatch--dense${
+                        className={`palette-swatch palette-swatch--dense palette-swatch--sidebar${
                           active ? " palette-chip--active" : ""
                         }${enabled ? "" : " palette-chip--disabled"}`}
+                        aria-label={`${color.id} ${color.name}`}
                         onClick={() => {
                           if (!enabled) {
                             togglePaletteColor(color.id);
@@ -984,7 +987,10 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                         type="button"
                       >
                         <span className="palette-swatch__chip" style={{ background: color.hex }} />
-                        <span className="palette-swatch__code">{color.id}</span>
+                        <span className="palette-swatch__meta">
+                          <span className="palette-swatch__code">{color.id}</span>
+                          <span className="palette-swatch__name">{color.name}</span>
+                        </span>
                         <label
                           className="palette-swatch__toggle"
                           onClick={(event) => event.stopPropagation()}
@@ -994,37 +1000,45 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                             onChange={() => togglePaletteColor(color.id)}
                             type="checkbox"
                           />
+                          <span className="palette-swatch__toggle-ui" aria-hidden="true">
+                            {enabled ? "✓" : ""}
+                          </span>
                         </label>
                       </button>
                     );
                   })}
               </div>
 
-              <div className="inline-actions inline-actions--sidebar">
-                <Button
-                  onClick={() => setAdvancedPaletteOpen((value) => !value)}
-                  size="compact"
-                  tone="editor"
-                >
-                  {advancedPaletteOpen ? "收起" : "展开更多"}
-                </Button>
-                <Button
-                  onClick={enableAllPaletteColors}
-                  size="compact"
-                  tone="editor"
-                >
-                  全启用
-                </Button>
-                <Button
-                  onClick={disableAllPaletteColors}
-                  size="compact"
-                  tone="editor"
-                >
-                  全禁用
-                </Button>
-                <Button onClick={resetPaletteSelection} size="compact" tone="editor">
-                  重置
-                </Button>
+              <div className="palette-actions">
+                <div className="palette-actions__row palette-actions__row--top">
+                  <Button
+                    className="palette-actions__expand"
+                    onClick={() => setAdvancedPaletteOpen((value) => !value)}
+                    size="compact"
+                    tone="editor"
+                  >
+                    {advancedPaletteOpen ? "收起" : "展开更多"}
+                  </Button>
+                  <Button onClick={resetPaletteSelection} size="compact" tone="editor">
+                    重置
+                  </Button>
+                </div>
+                <div className="palette-actions__row palette-actions__row--bottom">
+                  <Button
+                    onClick={enableAllPaletteColors}
+                    size="compact"
+                    tone="editor"
+                  >
+                    全启用
+                  </Button>
+                  <Button
+                    onClick={disableAllPaletteColors}
+                    size="compact"
+                    tone="editor"
+                  >
+                    全禁用
+                  </Button>
+                </div>
               </div>
 
               <div className="editor-color-tools__replace editor-color-tools__replace--dense editor-color-tools__replace--sidebar">
@@ -1354,9 +1368,12 @@ function ProjectInfoModal({
         onClick={(event) => event.stopPropagation()}
       >
         <header className="modal-sheet__header">
-          <div>
+          <div className="modal-sheet__brand-head">
+            <BrandMark className="modal-sheet__brand-mark" />
+            <div>
             <p className="modal-sheet__eyebrow">项目信息</p>
             <h2 className="modal-sheet__title">拼豆工坊</h2>
+            </div>
           </div>
           <div className="inline-actions inline-actions--tight">
             <span className={`status-badge${latestUpdateRead ? " status-badge--success" : " status-badge--warning"}`}>

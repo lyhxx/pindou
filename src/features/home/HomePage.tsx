@@ -1,3 +1,4 @@
+import { BrandMark } from "../../components/ui/BrandMark";
 import { Button } from "../../components/ui/Button";
 
 type HomePageProps = {
@@ -10,7 +11,10 @@ export function HomePage({ onEnterEditor }: HomePageProps) {
       <main className="home-entry">
         <section className="home-entry__hero">
           <div className="home-entry__copy">
-            <span className="home-entry__brand">拼豆工坊</span>
+            <div className="home-entry__brand-lockup">
+              <BrandMark className="home-entry__brand-mark" />
+              <span className="home-entry__brand">拼豆工坊</span>
+            </div>
             <h1 className="home-entry__title">把图片变成能直接开工的拼豆图纸</h1>
             <p className="home-entry__subtitle">本地转换、手工修正、导出图纸与清单</p>
             <div className="home-entry__actions">

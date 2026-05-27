@@ -49,7 +49,7 @@ export function ImageUploadField({
         </span>
       </label>
 
-      <label className="switch-toggle switch-toggle--inline">
+      <label className="switch-toggle switch-toggle--inline switch-toggle--stacked">
         <input
           checked={livePreviewEnabled}
           onChange={(event) => onLivePreviewChange(event.target.checked)}
@@ -58,7 +58,7 @@ export function ImageUploadField({
         <span className="switch-toggle__track" aria-hidden="true">
           <span className="switch-toggle__thumb" />
         </span>
-        <span className="switch-toggle__label">实时预览</span>
+        <span className="switch-toggle__label switch-toggle__label--stacked">实时预览</span>
       </label>
     </div>
   );
