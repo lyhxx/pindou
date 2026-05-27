@@ -36,6 +36,7 @@ description: 拼豆工坊项目的前端开发技能。用于 Codex 在这个纯
 - 查看 `src/features/editor/components/CanvasStage.tsx` 以理解舞台渲染、缩放、平移、网格显示和交互事件。
 - 查看 `src/features/editor/components/ImagePositionPreview.tsx` 以理解上传图预览层的缩放和平移行为。
 - 查看 `src/features/editor/EditorPage.tsx` 以理解编辑器布局、工具栏、左右侧栏和操作入口。
+- 查看 `src/features/editor/helpContent.ts` 以理解帮助中心、字段说明、工具说明和搜索数据源。
 - 查看 `src/features/home/HomePage.tsx` 以理解首页入口结构。
 - 查看 `src/features/palette/palette.ts` 以理解拼豆颜色库、颜色 id 和映射关系。
 - 查看 `src/shared/types/project.ts` 以理解工程数据结构和网格类型。
@@ -79,6 +80,7 @@ description: 拼豆工坊项目的前端开发技能。用于 Codex 在这个纯
 - 做 UI 收缩时，优先删冗余入口、合并重复语义，而不是继续堆按钮。
 - 做颜色相关功能时，始终围绕拼豆颜色库，而不是原图自由色值。
 - 做导出能力时，优先保证图纸和工程文件准确，再考虑额外展示产物。
+- 做帮助、提示、说明类改动时，统一维护在 `src/features/editor/helpContent.ts`，不要把长文案重新散写进页面组件。
 
 # 验证要求
 
