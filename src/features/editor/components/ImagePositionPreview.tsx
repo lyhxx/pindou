@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type {
+  BeadGrid,
   CanvasSize,
   SourceImage,
   ViewTransform,
 } from "../../../shared/types/project";
+import { EMPTY_CELL } from "../../../shared/types/project";
+import { defaultPalette } from "../../palette/palette";
 
 type ImagePositionPreviewProps = {
   canvas: CanvasSize;
   imageTransform: ViewTransform;
   onImageTransformChange: (transform: Partial<ViewTransform>) => void;
+  previewGrid: BeadGrid | null;
+  previewMode: "generated" | "source";
   sourceImage: SourceImage | null;
 };
 
@@ -20,6 +25,8 @@ export function ImagePositionPreview({
   canvas,
   imageTransform,
   onImageTransformChange,
+  previewGrid,
+  previewMode,
   sourceImage,
 }: ImagePositionPreviewProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
@@ -49,7 +56,7 @@ export function ImagePositionPreview({
   });
 
   useEffect(() => {
-    if (!sourceImage) {
+    if (!sourceImage?.src) {
       imageRef.current = null;
       drawPreview();
       return;
@@ -65,7 +72,7 @@ export function ImagePositionPreview({
 
   useEffect(() => {
     drawPreview();
-  }, [canvas.height, canvas.width, imageTransform]);
+  }, [canvas.height, canvas.width, imageTransform, previewGrid, previewMode]);
 
   useEffect(() => {
     const node = wrapperRef.current;
@@ -74,7 +81,7 @@ export function ImagePositionPreview({
     }
 
     const handleWheel = (event: WheelEvent) => {
-      if (!sourceImage) {
+      if (!sourceImage?.src) {
         return;
       }
 
@@ -126,7 +133,9 @@ export function ImagePositionPreview({
     context.fillStyle = "#ffffff";
     context.fillRect(boardLeft, boardTop, boardWidth, boardHeight);
 
-    if (imageRef.current) {
+    if (previewMode === "generated" && previewGrid) {
+      drawGeneratedPreview(context, previewGrid, boardLeft, boardTop, boardWidth, boardHeight);
+    } else if (imageRef.current) {
       const image = imageRef.current;
       const baseScale = Math.min(boardWidth / image.width, boardHeight / image.height);
       const drawWidth = image.width * baseScale * imageTransform.scale;
@@ -147,28 +156,33 @@ export function ImagePositionPreview({
       context.fillText("上传图片后在这里预览定位", PREVIEW_WIDTH / 2, PREVIEW_HEIGHT / 2);
     }
 
-    context.strokeStyle = "rgba(126, 119, 110, 0.35)";
-    context.lineWidth = 1;
     for (let x = 0; x <= canvas.width; x += 1) {
+      const isMajorLine = x % 10 === 0;
       context.beginPath();
+      context.strokeStyle = isMajorLine ? "rgba(216, 148, 66, 0.78)" : "rgba(92, 80, 67, 0.38)";
+      context.lineWidth = isMajorLine ? 1.35 : 0.8;
       context.moveTo(boardLeft + x * cellWidth, boardTop);
       context.lineTo(boardLeft + x * cellWidth, boardTop + boardHeight);
       context.stroke();
     }
 
     for (let y = 0; y <= canvas.height; y += 1) {
+      const isMajorLine = y % 10 === 0;
       context.beginPath();
+      context.strokeStyle = isMajorLine ? "rgba(216, 148, 66, 0.78)" : "rgba(92, 80, 67, 0.38)";
+      context.lineWidth = isMajorLine ? 1.35 : 0.8;
       context.moveTo(boardLeft, boardTop + y * cellHeight);
       context.lineTo(boardLeft + boardWidth, boardTop + y * cellHeight);
       context.stroke();
     }
 
-    context.strokeStyle = "#b8ab96";
+    context.strokeStyle = "rgba(72, 60, 48, 0.82)";
+    context.lineWidth = 1.6;
     context.strokeRect(boardLeft, boardTop, boardWidth, boardHeight);
   }
 
   function handlePointerDown(event: React.PointerEvent<HTMLCanvasElement>) {
-    if (!sourceImage) {
+    if (!sourceImage?.src) {
       return;
     }
 
@@ -267,7 +281,7 @@ export function ImagePositionPreview({
   }
 
   function handleWheel(event: React.WheelEvent<HTMLCanvasElement>) {
-    if (!sourceImage) {
+    if (!sourceImage?.src) {
       return;
     }
 
@@ -301,6 +315,36 @@ export function ImagePositionPreview({
       </div>
     </div>
   );
+}
+
+function drawGeneratedPreview(
+  context: CanvasRenderingContext2D,
+  beadGrid: BeadGrid,
+  boardLeft: number,
+  boardTop: number,
+  boardWidth: number,
+  boardHeight: number,
+) {
+  const cellWidth = boardWidth / beadGrid.width;
+  const cellHeight = boardHeight / beadGrid.height;
+
+  for (let y = 0; y < beadGrid.height; y += 1) {
+    for (let x = 0; x < beadGrid.width; x += 1) {
+      const colorIndex = beadGrid.cells[y * beadGrid.width + x];
+      if (colorIndex === EMPTY_CELL) {
+        continue;
+      }
+
+      const color = defaultPalette[colorIndex] ?? defaultPalette[0];
+      context.fillStyle = color.hex;
+      context.fillRect(
+        boardLeft + x * cellWidth,
+        boardTop + y * cellHeight,
+        cellWidth,
+        cellHeight,
+      );
+    }
+  }
 }
 
 function clampScale(value: number) {

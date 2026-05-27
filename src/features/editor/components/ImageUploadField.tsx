@@ -1,7 +1,15 @@
 import type { ChangeEvent } from "react";
 import { useEditorStore } from "../editorStore";
 
-export function ImageUploadField() {
+type ImageUploadFieldProps = {
+  livePreviewEnabled: boolean;
+  onLivePreviewChange: (enabled: boolean) => void;
+};
+
+export function ImageUploadField({
+  livePreviewEnabled,
+  onLivePreviewChange,
+}: ImageUploadFieldProps) {
   const setSourceImage = useEditorStore((state) => state.setSourceImage);
   const resetImageTransform = useEditorStore((state) => state.resetImageTransform);
   const sourceImage = useEditorStore((state) => state.sourceImage);
@@ -13,7 +21,7 @@ export function ImageUploadField() {
       return;
     }
 
-    const src = await fileToDataUrl(file);
+    const src = URL.createObjectURL(file);
     const dimensions = await getImageDimensions(src);
 
     setSourceImage({
@@ -27,28 +35,33 @@ export function ImageUploadField() {
   }
 
   return (
-    <label className="upload-field">
-      <input
-        accept="image/*"
-        className="upload-field__input"
-        onChange={handleFileChange}
-        type="file"
-      />
-      <span className="upload-field__content">
-        <span className="upload-field__title">{sourceImage ? "更换图片" : "上传图片"}</span>
-        <span className="upload-field__description">PNG / JPG，本地处理</span>
-      </span>
-    </label>
-  );
-}
+    <div className="upload-field-row">
+      <label className="upload-field">
+        <input
+          accept="image/*"
+          className="upload-field__input"
+          onChange={handleFileChange}
+          type="file"
+        />
+        <span className="upload-field__content">
+          <span className="upload-field__title">{sourceImage ? "更换图片" : "上传图片"}</span>
+          <span className="upload-field__description">PNG / JPG，本地处理</span>
+        </span>
+      </label>
 
-function fileToDataUrl(file: File) {
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
+      <label className="switch-toggle switch-toggle--inline">
+        <input
+          checked={livePreviewEnabled}
+          onChange={(event) => onLivePreviewChange(event.target.checked)}
+          type="checkbox"
+        />
+        <span className="switch-toggle__track" aria-hidden="true">
+          <span className="switch-toggle__thumb" />
+        </span>
+        <span className="switch-toggle__label">实时预览</span>
+      </label>
+    </div>
+  );
 }
 
 function getImageDimensions(src: string) {

@@ -1,6 +1,7 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { PanelCard } from "../../components/ui/PanelCard";
+import { notifyError } from "../../shared/notifications/notificationStore";
 import type { BeadGrid, RectSelection } from "../../shared/types/project";
 import { EMPTY_CELL } from "../../shared/types/project";
 import { defaultPalette, findPaletteColorById } from "../palette/palette";
@@ -24,6 +25,7 @@ import {
   exportColorListText,
   exportFormalPatternPng,
   exportProjectJson,
+  generatePreviewBeadGrid,
   parseProjectJson,
 } from "./quantizeImage";
 
@@ -34,6 +36,18 @@ type EditorPageProps = {
 const PROJECT_REPO_URL = "https://github.com/lyhxx/pindou";
 const FEEDBACK_EMAIL = "xihons@qq.com";
 const APP_VERSION = __APP_VERSION__;
+const UPDATE_NOTICE_STORAGE_KEY = "pindou.editor.update-notice.read.v1";
+const LATEST_UPDATE_NOTICE = {
+  id: `${APP_VERSION}-latest`,
+  label: "有更新",
+  title: "最新更新",
+  summary: "图片处理和画布缩放链路已补强，建议看一下本次变更。",
+  items: [
+    "去背景升级为按四边连通区域识别，减少误删主体。",
+    "高级颜色支持“仅替换边缘”，可快速清理描边杂色。",
+    "中间画布滚轮缩放的 passive 报错已修复。",
+  ],
+} as const;
 
 export function EditorPage({ onBackHome }: EditorPageProps) {
   const importInputRef = useRef<HTMLInputElement | null>(null);
@@ -47,6 +61,11 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const [confirmResetOpen, setConfirmResetOpen] = useState(false);
   const [projectInfoOpen, setProjectInfoOpen] = useState(false);
   const [helpCenterOpen, setHelpCenterOpen] = useState(false);
+  const [livePreviewEnabled, setLivePreviewEnabled] = useState(false);
+  const [previewGrid, setPreviewGrid] = useState<BeadGrid | null>(null);
+  const [updateNoticeRead, setUpdateNoticeRead] = useState<Record<string, boolean>>(
+    () => loadUpdateNoticeReadState(),
+  );
   const [helpCenterArticleId, setHelpCenterArticleId] = useState<EditorHelpArticleId>(
     defaultEditorHelpArticleId,
   );
@@ -97,6 +116,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const cutSelection = useEditorStore((state) => state.cutSelection);
   const pasteSelection = useEditorStore((state) => state.pasteSelection);
   const replaceColor = useEditorStore((state) => state.replaceColor);
+  const replaceEdgeColorOnly = useEditorStore((state) => state.replaceEdgeColorOnly);
   const pickCellColor = useEditorStore((state) => state.pickCellColor);
   const setCurrentSelection = useEditorStore((state) => state.setCurrentSelection);
   const clearSelection = useEditorStore((state) => state.clearSelection);
@@ -141,6 +161,48 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     setCanvasWidthInput(String(canvas.width));
     setCanvasHeightInput(String(canvas.height));
   }, [canvas.height, canvas.width]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!sourceImage?.src || !livePreviewEnabled) {
+      setPreviewGrid(null);
+      return;
+    }
+
+    void generatePreviewBeadGrid({
+      canvas,
+      sourceImage,
+      imageTransform,
+      dithering: processing.dithering,
+      removeBackground: processing.removeBackground,
+      tolerance: processing.tolerance,
+      enabledPaletteIds,
+    })
+      .then((grid) => {
+        if (!cancelled) {
+          setPreviewGrid(grid);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPreviewGrid(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canvas,
+    enabledPaletteIds,
+    imageTransform,
+    processing.dithering,
+    processing.removeBackground,
+    processing.tolerance,
+    sourceImage,
+    livePreviewEnabled,
+  ]);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
@@ -246,6 +308,8 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const exportBaseName = `pindou-${canvas.width}x${canvas.height}`;
   const generationReason = !sourceImage
     ? "请先上传图片"
+    : !sourceImage.src
+      ? "当前图片未保存在本地缓存中，请重新上传后再生成"
     : enabledPaletteIds.length === 0
       ? "请至少启用一种颜色"
       : null;
@@ -255,6 +319,21 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     : replaceFromColorId === replaceToColorId
       ? "源颜色和目标颜色不能相同"
       : null;
+
+  const hasUnreadUpdateNotice = !updateNoticeRead[LATEST_UPDATE_NOTICE.id];
+
+  useEffect(() => {
+    if (!projectInfoOpen || !hasUnreadUpdateNotice) {
+      return;
+    }
+
+    const nextState = {
+      ...updateNoticeRead,
+      [LATEST_UPDATE_NOTICE.id]: true,
+    };
+    setUpdateNoticeRead(nextState);
+    persistUpdateNoticeReadState(nextState);
+  }, [hasUnreadUpdateNotice, projectInfoOpen, updateNoticeRead]);
 
   function applyReplaceSlotColor(colorId: string) {
     if (replaceSelectionSlot === "from") {
@@ -332,7 +411,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       importProjectFile(projectFile);
     } catch (error) {
       const message = error instanceof Error ? error.message : "工程导入失败";
-      window.alert(message);
+      notifyError("工程导入失败", message);
     } finally {
       event.target.value = "";
     }
@@ -380,18 +459,24 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
 
         <div className="topbar__center">
           <button
-            className="topbar__project-link topbar__project-link--button"
+            className={`topbar__project-link topbar__project-link--button${
+              hasUnreadUpdateNotice ? " topbar__project-link--unread" : ""
+            }`}
             onClick={() => setProjectInfoOpen(true)}
             type="button"
           >
-            <span className="topbar__project-link-main">{`拼豆工坊 v${APP_VERSION}`}</span>
+            <span className={`topbar__project-link-main-badge${
+              hasUnreadUpdateNotice
+                ? " topbar__project-link-main-badge--warning"
+                : " topbar__project-link-main-badge--success"
+            }`}>{`拼豆工坊 v${APP_VERSION}`}</span>
             <span className="topbar__project-link-badge">反馈</span>
           </button>
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
           <Button onClick={() => openHelpArticle(editorHelpLinks.topbar)} size="compact" tone="editor">
-            帮助
+            帮助中心
           </Button>
           <Button onClick={handleCreateCanvasRequest} size="compact" tone="editor" variant="primary">
             新建
@@ -402,13 +487,15 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       <main className="editor-layout">
         <aside className="editor-sidebar">
           <div className="editor-panel-group">
-            <PanelCard eyebrow="Step 1" title="画布" tone="editor">
+            <PanelCard
+              eyebrow="Step 1"
+              title="画布"
+              titleAction={<HelpHint articleId={editorHelpLinks.canvasSize} onOpenArticle={openHelpArticle} />}
+              tone="editor"
+            >
               <div className="control-grid control-grid--double">
                 <label className="field">
-                  <span>
-                    宽度
-                    <HelpHint articleId={editorHelpLinks.canvasSize} onOpenArticle={openHelpArticle} />
-                  </span>
+                  <span>宽度</span>
                   <input
                     className="field__input"
                     inputMode="numeric"
@@ -442,7 +529,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                   <strong>{totalCells.toLocaleString("zh-CN")}</strong>
                 </div>
                 <div>
-                  <span>尺寸</span>
+                  <span>成品尺寸</span>
                   <strong>
                     {productWidthCm} x {productHeightCm} cm
                   </strong>
@@ -453,6 +540,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             <PanelCard
               eyebrow="Step 2"
               title="图片与生成"
+              titleAction={<HelpHint articleId={editorHelpLinks.imagePosition} onOpenArticle={openHelpArticle} />}
               tone="editor"
               footer={
                 <div className="stack-actions">
@@ -471,27 +559,21 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 </div>
               }
             >
-              <div className="section-headline">
-                <strong>{sourceImage ? "已上传图片" : "先上传图片"}</strong>
-                <span>{sourceImage ? `${sourceImage.width} x ${sourceImage.height}px` : "未载入"}</span>
-              </div>
-              <ImageUploadField />
+              <ImageUploadField
+                livePreviewEnabled={livePreviewEnabled}
+                onLivePreviewChange={setLivePreviewEnabled}
+              />
               <ImagePositionPreview
                 canvas={canvas}
                 imageTransform={imageTransform}
                 onImageTransformChange={setImageTransform}
+                previewGrid={previewGrid}
+                previewMode={livePreviewEnabled ? "generated" : "source"}
                 sourceImage={sourceImage}
               />
               <div className="editor-touch-note">
                 <strong>{editorUiCopy.touchImageNoteTitle}</strong>
                 <span>{editorUiCopy.touchImageNoteText}</span>
-                <button
-                  className="inline-help-link"
-                  onClick={() => openHelpArticle(editorHelpLinks.touchImage)}
-                  type="button"
-                >
-                  查看说明
-                </button>
               </div>
               <div className="image-controls">
                 <div className="image-controls__top">
@@ -532,10 +614,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
               </div>
               <div className="control-grid control-grid--double">
                 <label className="field">
-                  <span>
-                    抖动
-                    <HelpHint articleId={editorHelpLinks.dithering} onOpenArticle={openHelpArticle} />
-                  </span>
+                  <span>抖动</span>
                   <select
                     className="field__input"
                     onChange={(event) =>
@@ -549,10 +628,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 </label>
 
                 <label className="field">
-                  <span>
-                    去背景
-                    <HelpHint articleId={editorHelpLinks.removeBackground} onOpenArticle={openHelpArticle} />
-                  </span>
+                  <span>去背景</span>
                   <label className="toggle-row">
                     <input
                       checked={processing.removeBackground}
@@ -564,13 +640,13 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 </label>
               </div>
 
-              <label className="field">
-                <span>
-                  背景容差 {processing.tolerance}
-                  <HelpHint articleId={editorHelpLinks.tolerance} onOpenArticle={openHelpArticle} />
-                </span>
+              <label
+                className={`field${processing.removeBackground ? "" : " field--disabled"}`}
+              >
+                <span>背景容差 {processing.tolerance}</span>
                 <input
                   className="field__range"
+                  disabled={!processing.removeBackground}
                   max={100}
                   min={0}
                   onChange={(event) => setTolerance(Number(event.target.value))}
@@ -578,6 +654,9 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                   value={processing.tolerance}
                 />
               </label>
+              <p className="muted-copy muted-copy--compact">
+                去背景会优先清掉与四边连通的背景区域，比只按角点取色更稳。
+              </p>
             </PanelCard>
 
           </div>
@@ -680,7 +759,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     size="compact"
                     tone="editor"
                   >
-                    适应绘图
+                    裁切空白
                   </Button>
                   <Button
                     className="stage-tool-button"
@@ -853,19 +932,20 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
           <footer className="stage-statusbar">
             <span>{`画布 ${canvas.width} x ${canvas.height}`}</span>
             <span>{`视图 ${stageViewport.scale.toFixed(2)}x`}</span>
-            <span>{`已用 ${usedColorCount} 色`}</span>
+	            <span>{`已用 ${usedColorCount} 色`}</span>
             {selectionInfo ? <span>{`选区 ${selectionInfo.width} x ${selectionInfo.height}`}</span> : null}
-            <span className="stage-statusbar__hint">平板支持双指缩放/平移，也可切换到“移动画布”。</span>
+	            <span className="stage-statusbar__hint">平板支持双指缩放/平移，也可切换到“移动画布”。</span>
           </footer>
         </section>
 
         <aside className="editor-sidebar editor-sidebar--right">
           <div className="editor-panel-group">
-            <PanelCard eyebrow="Advanced" title="" tone="editor">
-              <div className="panel-inline-title">
-                <strong>高级颜色</strong>
-                <HelpHint articleId={editorHelpLinks.advancedPalette} onOpenArticle={openHelpArticle} />
-              </div>
+            <PanelCard
+              eyebrow="Advanced"
+              title="高级颜色"
+              titleAction={<HelpHint articleId={editorHelpLinks.advancedPalette} onOpenArticle={openHelpArticle} />}
+              tone="editor"
+            >
               <div className="current-color current-color--compact current-color--compact-inline current-color--sidebar current-color--sidebar-tight">
                 <div
                   className="current-color__swatch current-color__swatch--dense"
@@ -980,7 +1060,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                   </button>
                 </div>
                 <p className="muted-copy muted-copy--compact">
-                  先点源或目标，再在上方选色，或切吸管到画布取色。
+                  先点源或目标，再在上方选色，或切换吸色到画布取色。
                 </p>
                 <Button
                   disabled={Boolean(replaceReason)}
@@ -991,7 +1071,18 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 >
                   替换为目标色
                 </Button>
+                <Button
+                  disabled={Boolean(replaceReason)}
+                  onClick={() => replaceEdgeColorOnly(replaceFromColorId, replaceToColorId)}
+                  size="compact"
+                  tone="editor"
+                >
+                  仅替换边缘
+                </Button>
                 <DisabledHint reason={replaceReason} />
+                <p className="muted-copy muted-copy--compact">
+                  只处理边缘附近和小面积跳色点，不会把整张图里同色区域全部替换掉。
+                </p>
               </div>
             </PanelCard>
 
@@ -1041,14 +1132,14 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
               }
             >
               <div className="export-note">
-                <span>只保留图纸输出和工程文件。</span>
+	                <span>只保留图纸输出和工程文件。</span>
               </div>
             </PanelCard>
 
             <PanelCard eyebrow="Colors" title="颜色统计" tone="editor">
               <div className="editor-color-tools__head">
                 <strong>已用颜色</strong>
-                <span>{usedColorCount} 色</span>
+	                <span>{usedColorCount} 色</span>
               </div>
               <div className="stats-list stats-list--compact">
                 {colorStats.length > 0 ? (
@@ -1088,11 +1179,9 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       />
       <ProjectInfoModal
         feedbackEmail={FEEDBACK_EMAIL}
+        latestUpdateNotice={LATEST_UPDATE_NOTICE}
+        latestUpdateRead={!hasUnreadUpdateNotice}
         onClose={() => setProjectInfoOpen(false)}
-        onOpenHelpCenter={() => {
-          setProjectInfoOpen(false);
-          openHelpArticle(editorHelpLinks.topbar);
-        }}
         open={projectInfoOpen}
         repoUrl={PROJECT_REPO_URL}
         version={APP_VERSION}
@@ -1138,7 +1227,13 @@ type ProjectInfoModalProps = {
   repoUrl: string;
   feedbackEmail: string;
   version: string;
-  onOpenHelpCenter: () => void;
+  latestUpdateNotice: {
+    label: string;
+    title: string;
+    summary: string;
+    items: readonly string[];
+  };
+  latestUpdateRead: boolean;
 };
 
 type HelpCenterModalProps = {
@@ -1178,7 +1273,7 @@ function ConfirmResetModal({ open, onClose, onConfirm }: ConfirmResetModalProps)
         <header className="modal-sheet__header modal-sheet__header--confirm">
           <div>
             <p className="modal-sheet__eyebrow">新建确认</p>
-            <h2 className="modal-sheet__title modal-sheet__title--confirm">新建会清空当前内容</h2>
+	            <h2 className="modal-sheet__title modal-sheet__title--confirm">新建会清空当前内容</h2>
           </div>
         </header>
 
@@ -1209,7 +1304,8 @@ function ProjectInfoModal({
   repoUrl,
   feedbackEmail,
   version,
-  onOpenHelpCenter,
+  latestUpdateNotice,
+  latestUpdateRead,
 }: ProjectInfoModalProps) {
   const [copied, setCopied] = useState(false);
 
@@ -1263,7 +1359,9 @@ function ProjectInfoModal({
             <h2 className="modal-sheet__title">拼豆工坊</h2>
           </div>
           <div className="inline-actions inline-actions--tight">
-            <span className="status-badge">{`v${version}`}</span>
+            <span className={`status-badge${latestUpdateRead ? " status-badge--success" : " status-badge--warning"}`}>
+              {`v${version}`}
+            </span>
             <button
               aria-label="关闭项目信息"
               className="modal-icon-button"
@@ -1276,18 +1374,17 @@ function ProjectInfoModal({
         </header>
 
         <div className="modal-sheet__body">
-          <div className="modal-sheet__block">
+          <div className={`modal-sheet__block modal-sheet__block--update${latestUpdateRead ? "" : " modal-sheet__block--update-unread"}`}>
             <div className="modal-sheet__block-head">
-              <strong>帮助与使用说明</strong>
-              <span>查看完整工具说明、快捷键和触控操作</span>
+              <strong>{latestUpdateNotice.title}</strong>
+              <span>{latestUpdateNotice.summary}</span>
             </div>
-            <div className="modal-sheet__actions">
-              <Button onClick={onOpenHelpCenter} size="compact" tone="editor" variant="primary">
-                查看全部帮助
-              </Button>
-            </div>
+            <ul className="touch-help-list">
+              {latestUpdateNotice.items.map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
           </div>
-
           <div className="modal-sheet__block">
             <div className="modal-sheet__block-head">
               <strong>查看开源项目</strong>
@@ -1324,6 +1421,7 @@ function HelpCenterModal({
 }: HelpCenterModalProps) {
   const [query, setQuery] = useState("");
   const searchInputId = useId();
+  const articleNavRefs = useRef<Partial<Record<EditorHelpArticleId, HTMLButtonElement | null>>>({});
 
   useEffect(() => {
     if (!open) {
@@ -1346,10 +1444,6 @@ function HelpCenterModal({
     }
   }, [open]);
 
-  if (!open) {
-    return null;
-  }
-
   const normalizedQuery = query.trim().toLowerCase();
   const filteredArticles = normalizedQuery
     ? editorHelpArticles.filter((article) => buildHelpSearchText(article).includes(normalizedQuery))
@@ -1367,6 +1461,41 @@ function HelpCenterModal({
       ),
     }))
     .filter((entry) => entry.articles.length > 0);
+
+  useEffect(() => {
+    if (!normalizedQuery) {
+      return;
+    }
+
+    const firstMatchedArticle = filteredArticles[0];
+    if (firstMatchedArticle && firstMatchedArticle.id !== activeArticleId) {
+      onSelectArticle(firstMatchedArticle.id);
+    }
+  }, [activeArticleId, filteredArticles, normalizedQuery, onSelectArticle]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const activeNavItem = articleNavRefs.current[activeArticle.id];
+    if (!activeNavItem) {
+      return;
+    }
+
+    const frameId = window.requestAnimationFrame(() => {
+      activeNavItem.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+      });
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeArticle.id, open]);
+
+  if (!open) {
+    return null;
+  }
 
   return (
     <div className="modal-backdrop" onClick={onClose} role="presentation">
@@ -1398,6 +1527,39 @@ function HelpCenterModal({
               />
             </label>
 
+            <div className="help-center__quick-links">
+              <button
+                className={`help-center__quick-link${
+                  activeArticle.id === editorHelpLinks.shortcuts ? " help-center__quick-link--active" : ""
+                }`}
+                onClick={() => onSelectArticle(editorHelpLinks.shortcuts)}
+                type="button"
+              >
+                快捷键
+              </button>
+              <button
+                className={`help-center__quick-link${
+                  activeArticle.id === editorHelpLinks.topbar ? " help-center__quick-link--active" : ""
+                }`}
+                onClick={() => onSelectArticle(editorHelpLinks.topbar)}
+                type="button"
+              >
+                工作台总览
+              </button>
+              <button
+                className={`help-center__quick-link${
+                  activeArticle.id === editorHelpLinks.touchCanvas ||
+                  activeArticle.id === editorHelpLinks.touchImage
+                    ? " help-center__quick-link--active"
+                    : ""
+                }`}
+                onClick={() => onSelectArticle(editorHelpLinks.touchCanvas)}
+                type="button"
+              >
+                触控帮助
+              </button>
+            </div>
+
             <div className="help-center__nav">
               {groupedArticles.length > 0 ? (
                 groupedArticles.map(({ group, articles }) => (
@@ -1411,6 +1573,9 @@ function HelpCenterModal({
                             activeArticle.id === article.id ? " help-center__nav-item--active" : ""
                           }`}
                           onClick={() => onSelectArticle(article.id)}
+                          ref={(node) => {
+                            articleNavRefs.current[article.id] = node;
+                          }}
                           type="button"
                         >
                           <strong>{renderHighlightedText(article.title, normalizedQuery)}</strong>
@@ -1468,6 +1633,36 @@ function DisabledHint({ reason }: { reason: string | null }) {
   }
 
   return <p className="disabled-hint">{reason}</p>;
+}
+
+function loadUpdateNoticeReadState() {
+  if (typeof window === "undefined") {
+    return {} as Record<string, boolean>;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(UPDATE_NOTICE_STORAGE_KEY);
+    if (!raw) {
+      return {} as Record<string, boolean>;
+    }
+
+    const parsed = JSON.parse(raw) as Record<string, boolean>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {} as Record<string, boolean>;
+  }
+}
+
+function persistUpdateNoticeReadState(state: Record<string, boolean>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(UPDATE_NOTICE_STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // ignore update-notice persistence failure
+  }
 }
 
 function renderHighlightedText(text: string, query: string) {
@@ -1555,3 +1750,4 @@ function downloadUrl(filename: string, url: string) {
   link.download = filename;
   link.click();
 }
+

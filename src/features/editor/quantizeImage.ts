@@ -24,6 +24,9 @@ const EXPORT_MAX_CELL_SIZE = 28;
 const EXPORT_DRAW_SIZE = 2200;
 const EXPORT_HEADER_HEIGHT = 104;
 const EXPORT_FOOTER_MIN_HEIGHT = 120;
+const EXPORT_PIXEL_RATIO = 2;
+const MAX_EXPORT_BITMAP_SIDE = 16384;
+const TRIMMABLE_BACKGROUND_COLOR_IDS = new Set(["W01", "W02", "W03", "S01"]);
 
 export async function generateBeadGrid(options: {
   canvas: CanvasSize;
@@ -33,6 +36,7 @@ export async function generateBeadGrid(options: {
   removeBackground: boolean;
   tolerance: number;
   enabledPaletteIds: string[];
+  edgeCleanup: boolean;
 }) {
   const image = await loadImage(options.sourceImage.src);
   const sampleSurface = renderSourceToSampleSurface({
@@ -42,7 +46,7 @@ export async function generateBeadGrid(options: {
   });
 
   if (options.removeBackground) {
-    removeSolidBackground(sampleSurface.imageData, options.tolerance);
+    removeConnectedBackground(sampleSurface.imageData, options.tolerance);
   }
 
   const enabledPaletteIndices = normalizeEnabledPaletteIds(options.enabledPaletteIds)
@@ -63,7 +67,22 @@ export async function generateBeadGrid(options: {
       ? quantizeWithDithering(sampledGrid, enabledPaletteIndices)
       : quantizeNearest(sampledGrid, enabledPaletteIndices);
 
-  return beadGrid;
+  return options.edgeCleanup ? cleanupEdgeNoise(beadGrid) : beadGrid;
+}
+
+export async function generatePreviewBeadGrid(options: {
+  canvas: CanvasSize;
+  sourceImage: SourceImage;
+  imageTransform: ViewTransform;
+  dithering: DitheringMode;
+  removeBackground: boolean;
+  tolerance: number;
+  enabledPaletteIds: string[];
+}) {
+  return generateBeadGrid({
+    ...options,
+    edgeCleanup: false,
+  });
 }
 
 export function buildColorStats(beadGrid: BeadGrid | null) {
@@ -143,6 +162,7 @@ export function exportProjectJson(options: {
     removeBackground: boolean;
     tolerance: number;
     dithering: DitheringMode;
+    edgeCleanup: boolean;
   };
   sourceImage: SourceImage | null;
   imageTransform: ViewTransform;
@@ -210,6 +230,12 @@ export function parseProjectJson(raw: string): SerializedProjectFile {
         enabledPaletteIds.includes(projectFile.project.activeColorId ?? "")
           ? projectFile.project.activeColorId ?? defaultPaletteIds[0]
           : enabledPaletteIds[0],
+      processing: {
+        removeBackground: Boolean(projectFile.project.processing?.removeBackground),
+        tolerance: projectFile.project.processing?.tolerance ?? 24,
+        dithering: projectFile.project.processing?.dithering ?? "none",
+        edgeCleanup: projectFile.project.processing?.edgeCleanup ?? false,
+      },
     },
   } as SerializedProjectFile;
 }
@@ -274,6 +300,7 @@ export function trimBeadGrid(beadGrid: BeadGrid | null) {
     return null;
   }
 
+  const ignoredCells = buildTrimmableBackgroundMask(beadGrid);
   let minX = beadGrid.width;
   let minY = beadGrid.height;
   let maxX = -1;
@@ -281,7 +308,12 @@ export function trimBeadGrid(beadGrid: BeadGrid | null) {
 
   for (let y = 0; y < beadGrid.height; y += 1) {
     for (let x = 0; x < beadGrid.width; x += 1) {
-      const colorIndex = beadGrid.cells[y * beadGrid.width + x];
+      const index = y * beadGrid.width + x;
+      if (ignoredCells?.[index]) {
+        continue;
+      }
+
+      const colorIndex = beadGrid.cells[index];
       if (colorIndex === EMPTY_CELL) {
         continue;
       }
@@ -314,6 +346,113 @@ export function trimBeadGrid(beadGrid: BeadGrid | null) {
     height: nextHeight,
     cells,
   };
+}
+
+function buildTrimmableBackgroundMask(beadGrid: BeadGrid) {
+  const candidateColorIndex = findConnectedBorderBackgroundColor(beadGrid);
+  if (candidateColorIndex === null) {
+    return null;
+  }
+
+  const mask = new Uint8Array(beadGrid.width * beadGrid.height);
+  const queue: number[] = [];
+
+  function enqueue(index: number) {
+    if (mask[index] || beadGrid.cells[index] !== candidateColorIndex) {
+      return;
+    }
+    mask[index] = 1;
+    queue.push(index);
+  }
+
+  for (let x = 0; x < beadGrid.width; x += 1) {
+    enqueue(x);
+    enqueue((beadGrid.height - 1) * beadGrid.width + x);
+  }
+
+  for (let y = 1; y < beadGrid.height - 1; y += 1) {
+    enqueue(y * beadGrid.width);
+    enqueue(y * beadGrid.width + (beadGrid.width - 1));
+  }
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    const x = index % beadGrid.width;
+    const y = Math.floor(index / beadGrid.width);
+
+    if (x > 0) {
+      enqueue(index - 1);
+    }
+    if (x + 1 < beadGrid.width) {
+      enqueue(index + 1);
+    }
+    if (y > 0) {
+      enqueue(index - beadGrid.width);
+    }
+    if (y + 1 < beadGrid.height) {
+      enqueue(index + beadGrid.width);
+    }
+  }
+
+  for (let index = 0; index < beadGrid.cells.length; index += 1) {
+    if (!mask[index] && beadGrid.cells[index] !== EMPTY_CELL) {
+      return mask;
+    }
+  }
+
+  return null;
+}
+
+function findConnectedBorderBackgroundColor(beadGrid: BeadGrid) {
+  const borderCounts = new Map<number, number>();
+  let occupiedBorderCount = 0;
+
+  function countIndex(index: number) {
+    const colorIndex = beadGrid.cells[index];
+    if (colorIndex === EMPTY_CELL) {
+      return;
+    }
+    occupiedBorderCount += 1;
+    borderCounts.set(colorIndex, (borderCounts.get(colorIndex) ?? 0) + 1);
+  }
+
+  for (let x = 0; x < beadGrid.width; x += 1) {
+    countIndex(x);
+    if (beadGrid.height > 1) {
+      countIndex((beadGrid.height - 1) * beadGrid.width + x);
+    }
+  }
+
+  for (let y = 1; y < beadGrid.height - 1; y += 1) {
+    countIndex(y * beadGrid.width);
+    if (beadGrid.width > 1) {
+      countIndex(y * beadGrid.width + (beadGrid.width - 1));
+    }
+  }
+
+  if (occupiedBorderCount === 0) {
+    return null;
+  }
+
+  let winner: number | null = null;
+  let winnerCount = 0;
+  for (const [colorIndex, count] of borderCounts.entries()) {
+    if (count > winnerCount) {
+      winner = colorIndex;
+      winnerCount = count;
+    }
+  }
+
+  if (winner === null) {
+    return null;
+  }
+
+  const winnerColor = defaultPalette[winner];
+  if (!winnerColor || !TRIMMABLE_BACKGROUND_COLOR_IDS.has(winnerColor.id)) {
+    return null;
+  }
+
+  return winnerCount / occupiedBorderCount >= 0.55 ? winner : null;
 }
 
 function drawFinishedBead(
@@ -353,11 +492,9 @@ function renderPatternChart(beadGrid: BeadGrid) {
   const rulerSize = cellSize >= 18 ? 40 : EXPORT_RULER_SIZE;
   const paperWidth = beadGrid.width * cellSize;
   const paperHeight = beadGrid.height * cellSize;
-  const canvas = document.createElement("canvas");
-  canvas.width = EXPORT_MARGIN * 2 + rulerSize * 2 + paperWidth;
-  canvas.height = EXPORT_MARGIN * 2 + rulerSize * 2 + paperHeight;
-
-  const context = canvas.getContext("2d");
+  const logicalWidth = EXPORT_MARGIN * 2 + rulerSize * 2 + paperWidth;
+  const logicalHeight = EXPORT_MARGIN * 2 + rulerSize * 2 + paperHeight;
+  const { canvas, context } = createExportCanvas(logicalWidth, logicalHeight);
   if (!context) {
     throw new Error("无法初始化图纸导出画布。");
   }
@@ -368,7 +505,7 @@ function renderPatternChart(beadGrid: BeadGrid) {
   const paperBottom = paperTop + paperHeight;
 
   context.fillStyle = "#f4efe6";
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
 
   context.fillStyle = "#ffffff";
   context.fillRect(paperLeft, paperTop, paperWidth, paperHeight);
@@ -387,7 +524,7 @@ function renderPatternChart(beadGrid: BeadGrid) {
   drawPatternCells(context, beadGrid, cellSize, paperLeft, paperTop);
   drawPatternGrid(context, beadGrid.width, beadGrid.height, cellSize, paperLeft, paperTop);
 
-  if (cellSize >= 20) {
+  if (cellSize >= 12) {
     drawPatternCellLabels(context, beadGrid, cellSize, paperLeft, paperTop);
   }
 
@@ -412,12 +549,10 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
   const legendColumns = colorStats.length > 12 ? 3 : colorStats.length > 6 ? 2 : 1;
   const legendRows = Math.max(1, Math.ceil(Math.max(1, colorStats.length) / legendColumns));
   const footerHeight = Math.max(EXPORT_FOOTER_MIN_HEIGHT, 64 + legendRows * 24);
-  const canvas = document.createElement("canvas");
-  canvas.width = EXPORT_MARGIN * 2 + rulerSize * 2 + paperWidth;
-  canvas.height =
+  const logicalWidth = EXPORT_MARGIN * 2 + rulerSize * 2 + paperWidth;
+  const logicalHeight =
     EXPORT_MARGIN * 2 + EXPORT_HEADER_HEIGHT + rulerSize * 2 + paperHeight + footerHeight;
-
-  const context = canvas.getContext("2d");
+  const { canvas, context } = createExportCanvas(logicalWidth, logicalHeight);
   if (!context) {
     throw new Error("无法初始化图纸导出画布。");
   }
@@ -428,7 +563,7 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
   const paperBottom = paperTop + paperHeight;
 
   context.fillStyle = "#f4efe6";
-  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillRect(0, 0, logicalWidth, logicalHeight);
 
   drawFormalPatternHeader(context, {
     name,
@@ -436,7 +571,7 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
     colorStats,
     left: EXPORT_MARGIN,
     top: EXPORT_MARGIN,
-    width: canvas.width - EXPORT_MARGIN * 2,
+    width: logicalWidth - EXPORT_MARGIN * 2,
     height: EXPORT_HEADER_HEIGHT - 12,
   });
 
@@ -457,7 +592,7 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
   drawPatternCells(context, beadGrid, cellSize, paperLeft, paperTop);
   drawPatternGrid(context, beadGrid.width, beadGrid.height, cellSize, paperLeft, paperTop);
 
-  if (cellSize >= 20) {
+  if (cellSize >= 12) {
     drawPatternCellLabels(context, beadGrid, cellSize, paperLeft, paperTop);
   }
 
@@ -470,12 +605,35 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
     colorStats,
     left: EXPORT_MARGIN,
     top: paperBottom + rulerSize + 12,
-    width: canvas.width - EXPORT_MARGIN * 2,
+    width: logicalWidth - EXPORT_MARGIN * 2,
     height: footerHeight - 12,
     columns: legendColumns,
   });
 
   return canvas;
+}
+
+function createExportCanvas(logicalWidth: number, logicalHeight: number) {
+  const canvas = document.createElement("canvas");
+  const maxSide = Math.max(logicalWidth, logicalHeight);
+  const safePixelRatio = clampNumber(
+    Math.floor(Math.min(EXPORT_PIXEL_RATIO, MAX_EXPORT_BITMAP_SIDE / Math.max(1, maxSide)) * 100) / 100,
+    1,
+    EXPORT_PIXEL_RATIO,
+  );
+
+  canvas.width = Math.max(1, Math.round(logicalWidth * safePixelRatio));
+  canvas.height = Math.max(1, Math.round(logicalHeight * safePixelRatio));
+
+  const context = canvas.getContext("2d");
+  if (context) {
+    context.setTransform(safePixelRatio, 0, 0, safePixelRatio, 0, 0);
+  }
+
+  return {
+    canvas,
+    context,
+  };
 }
 
 function drawPatternRulers(
@@ -609,7 +767,7 @@ function drawPatternCellLabels(
   context.font =
     cellSize >= 24
       ? `${Math.floor(cellSize * 0.42)}px "IBM Plex Mono", monospace`
-      : `${Math.floor(cellSize * 0.36)}px "IBM Plex Mono", monospace`;
+      : `${Math.max(8, Math.floor(cellSize * 0.48))}px "IBM Plex Mono", monospace`;
 
   for (let y = 0; y < beadGrid.height; y += 1) {
     for (let x = 0; x < beadGrid.width; x += 1) {
@@ -619,7 +777,7 @@ function drawPatternCellLabels(
       }
 
       const color = defaultPalette[colorIndex] ?? defaultPalette[0];
-      const label = cellSize >= 24 ? color.id : String(colorIndex + 1);
+      const label = color.id;
 
       context.fillStyle = getReadableTextColor(color.rgb);
       context.fillText(
@@ -842,33 +1000,224 @@ function renderSourceToSampleSurface(options: {
   };
 }
 
-function removeSolidBackground(imageData: ImageData, tolerance: number) {
+function removeConnectedBackground(imageData: ImageData, tolerance: number) {
   const { width, height, data } = imageData;
-  const samples = [
-    readPixel(data, width, 0, 0),
-    readPixel(data, width, width - 1, 0),
-    readPixel(data, width, 0, height - 1),
-    readPixel(data, width, width - 1, height - 1),
-  ];
+  const samples = collectBorderPixels(imageData);
+  if (samples.length === 0) {
+    return;
+  }
   const background = averagePixels(samples);
+  const visited = new Uint8Array(width * height);
+  const queue = new Uint32Array(width * height);
+  let head = 0;
+  let tail = 0;
 
-  for (let index = 0; index < width * height; index += 1) {
+  function enqueue(x: number, y: number) {
+    const index = y * width + x;
+    if (visited[index]) {
+      return;
+    }
     const offset = index * 4;
     const alpha = data[offset + 3];
+    visited[index] = 1;
     if (alpha < MIN_VISIBLE_ALPHA) {
       data[offset + 3] = 0;
-      continue;
+      queue[tail] = index;
+      tail += 1;
+      return;
     }
-
-    const deltaR = data[offset] - background[0];
-    const deltaG = data[offset + 1] - background[1];
-    const deltaB = data[offset + 2] - background[2];
-    const distance = Math.sqrt(deltaR * deltaR + deltaG * deltaG + deltaB * deltaB);
-
-    if (distance <= tolerance) {
+    if (pixelDistanceToColor(data, offset, background) <= tolerance) {
       data[offset + 3] = 0;
+      queue[tail] = index;
+      tail += 1;
     }
   }
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x, 0);
+    enqueue(x, height - 1);
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(0, y);
+    enqueue(width - 1, y);
+  }
+
+  while (head < tail) {
+    const index = queue[head];
+    head += 1;
+    const x = index % width;
+    const y = Math.floor(index / width);
+    if (x > 0) enqueue(x - 1, y);
+    if (x + 1 < width) enqueue(x + 1, y);
+    if (y > 0) enqueue(x, y - 1);
+    if (y + 1 < height) enqueue(x, y + 1);
+  }
+}
+
+function collectBorderPixels(imageData: ImageData) {
+  const { width, height, data } = imageData;
+  const samples: Array<[number, number, number]> = [];
+
+  function pushPixel(x: number, y: number) {
+    const offset = (y * width + x) * 4;
+    if (data[offset + 3] < MIN_VISIBLE_ALPHA) {
+      return;
+    }
+    samples.push([data[offset], data[offset + 1], data[offset + 2]]);
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    pushPixel(x, 0);
+    pushPixel(x, height - 1);
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    pushPixel(0, y);
+    pushPixel(width - 1, y);
+  }
+
+  return samples;
+}
+
+function pixelDistanceToColor(
+  data: Uint8ClampedArray,
+  offset: number,
+  color: [number, number, number],
+) {
+  const deltaR = data[offset] - color[0];
+  const deltaG = data[offset + 1] - color[1];
+  const deltaB = data[offset + 2] - color[2];
+  return Math.sqrt(deltaR * deltaR + deltaG * deltaG + deltaB * deltaB);
+}
+
+export function replaceEdgeColor(
+  beadGrid: BeadGrid | null,
+  fromColorIndex: number,
+  toColorIndex: number,
+) {
+  if (!beadGrid || fromColorIndex < 0 || toColorIndex < 0 || fromColorIndex === toColorIndex) {
+    return beadGrid;
+  }
+
+  const nextCells = new Uint16Array(beadGrid.cells);
+  let changed = false;
+  const { width, height } = beadGrid;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      if (nextCells[index] !== fromColorIndex) {
+        continue;
+      }
+
+      const neighborhood = collectNeighborColors(nextCells, width, height, x, y);
+      const sameColorCount = neighborhood.filter((colorIndex) => colorIndex === fromColorIndex).length;
+      const emptyCount = neighborhood.filter((colorIndex) => colorIndex === EMPTY_CELL).length;
+
+      if (sameColorCount <= 2 || emptyCount >= 1) {
+        nextCells[index] = toColorIndex;
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) {
+    return beadGrid;
+  }
+
+  return {
+    ...beadGrid,
+    cells: nextCells,
+  };
+}
+
+function cleanupEdgeNoise(beadGrid: BeadGrid) {
+  const nextCells = new Uint16Array(beadGrid.cells);
+  const { width, height } = beadGrid;
+  let changed = false;
+
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      const index = y * width + x;
+      const current = nextCells[index];
+      if (current === EMPTY_CELL) {
+        continue;
+      }
+
+      const neighborhood = collectNeighborColors(nextCells, width, height, x, y);
+      const nonEmptyNeighbors = neighborhood.filter((colorIndex) => colorIndex !== EMPTY_CELL);
+      if (nonEmptyNeighbors.length === 0) {
+        continue;
+      }
+
+      const sameColorCount = nonEmptyNeighbors.filter((colorIndex) => colorIndex === current).length;
+      if (sameColorCount >= 3) {
+        continue;
+      }
+
+      const dominantNeighbor = findDominantNeighbor(nonEmptyNeighbors, current);
+      if (dominantNeighbor !== null && dominantNeighbor !== current) {
+        nextCells[index] = dominantNeighbor;
+        changed = true;
+      }
+    }
+  }
+
+  if (!changed) {
+    return beadGrid;
+  }
+
+  return {
+    ...beadGrid,
+    cells: nextCells,
+  };
+}
+
+function collectNeighborColors(
+  cells: Uint16Array,
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+) {
+  const neighbors: number[] = [];
+  for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      if (offsetX === 0 && offsetY === 0) {
+        continue;
+      }
+      const nextX = x + offsetX;
+      const nextY = y + offsetY;
+      if (nextX < 0 || nextX >= width || nextY < 0 || nextY >= height) {
+        neighbors.push(EMPTY_CELL);
+        continue;
+      }
+      neighbors.push(cells[nextY * width + nextX]);
+    }
+  }
+  return neighbors;
+}
+
+function findDominantNeighbor(neighbors: number[], current: number) {
+  const counts = new Map<number, number>();
+  for (const neighbor of neighbors) {
+    if (neighbor === EMPTY_CELL || neighbor === current) {
+      continue;
+    }
+    counts.set(neighbor, (counts.get(neighbor) ?? 0) + 1);
+  }
+
+  let winner: number | null = null;
+  let winnerCount = 0;
+  for (const [colorIndex, count] of counts.entries()) {
+    if (count > winnerCount) {
+      winner = colorIndex;
+      winnerCount = count;
+    }
+  }
+
+  return winnerCount >= 3 ? winner : null;
 }
 
 function sampleGridFromImageData(options: {
@@ -1112,16 +1461,6 @@ function diffuseError(
   sample.r = clampChannel(sample.r + errorR * factor);
   sample.g = clampChannel(sample.g + errorG * factor);
   sample.b = clampChannel(sample.b + errorB * factor);
-}
-
-function readPixel(
-  data: Uint8ClampedArray,
-  width: number,
-  x: number,
-  y: number,
-): [number, number, number] {
-  const offset = (y * width + x) * 4;
-  return [data[offset], data[offset + 1], data[offset + 2]];
 }
 
 function averagePixels(pixels: Array<[number, number, number]>) {

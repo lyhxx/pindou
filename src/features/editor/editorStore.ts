@@ -7,6 +7,7 @@ import type {
   ProjectState,
   RectSelection,
   SerializedProjectFile,
+  SerializedSourceImage,
   SourceImage,
   ViewTransform,
 } from "../../shared/types/project";
@@ -18,7 +19,8 @@ import {
   findPaletteIndexById,
   normalizeEnabledPaletteIds,
 } from "../palette/palette";
-import { generateBeadGrid, trimBeadGrid } from "./quantizeImage";
+import { generateBeadGrid, replaceEdgeColor, trimBeadGrid } from "./quantizeImage";
+import { notifyError, notifyInfo } from "../../shared/notifications/notificationStore";
 
 type HistoryEntry = {
   beadGrid: BeadGrid | null;
@@ -80,6 +82,7 @@ type EditorStore = EditorStoreState & {
   cutSelection: (selection: RectSelection) => void;
   pasteSelection: () => void;
   replaceColor: (fromColorId: string, toColorId: string) => void;
+  replaceEdgeColorOnly: (fromColorId: string, toColorId: string) => void;
   pickCellColor: (x: number, y: number) => void;
   undo: () => void;
   redo: () => void;
@@ -98,6 +101,7 @@ type LegacyStoredProjectLibrary = {
 
 const STORAGE_KEY = "pindou.editor.document.v1";
 const LEGACY_STORAGE_KEY = "pindou.editor.library.v1";
+let hasShownStorageQuotaNotice = false;
 
 const defaultViewTransform: ViewTransform = {
   scale: 1,
@@ -123,10 +127,11 @@ const initialState: ProjectState = {
     removeBackground: false,
     tolerance: 24,
     dithering: "none",
+    edgeCleanup: false,
   },
   enabledPaletteIds: [...defaultPaletteIds],
   activeTool: "paint",
-  activeColorId: defaultPalette[2].id,
+  activeColorId: defaultPalette.find((color) => color.id === "R02")?.id ?? defaultPalette[2].id,
   showGrid: true,
 };
 
@@ -454,6 +459,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       removeBackground: state.processing.removeBackground,
       tolerance: state.processing.tolerance,
       enabledPaletteIds: state.enabledPaletteIds,
+      edgeCleanup: false,
     });
 
     set((currentState) =>
@@ -487,6 +493,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
             width: trimmedGrid.width,
             height: trimmedGrid.height,
           },
+          currentSelection: null,
           stageViewport: defaultViewTransform,
         }),
       );
@@ -968,6 +975,28 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         }),
       );
     }),
+  replaceEdgeColorOnly: (fromColorId, toColorId) =>
+    set((state) => {
+      if (!state.beadGrid) {
+        return state;
+      }
+
+      const fromIndex = findPaletteIndexById(fromColorId);
+      const toIndex = findPaletteIndexById(toColorId);
+      const nextGrid = replaceEdgeColor(state.beadGrid, fromIndex, toIndex);
+
+      if (!nextGrid || nextGrid === state.beadGrid) {
+        return state;
+      }
+
+      return persistProjectState(
+        pushHistoryState(state, {
+          beadGrid: nextGrid,
+          canvas: state.canvas,
+          currentSelection: state.currentSelection,
+        }),
+      );
+    }),
   pickCellColor: (x, y) =>
     set((state) => {
       if (!state.beadGrid) {
@@ -1144,7 +1173,10 @@ function sanitizeProjectName(name: string | undefined) {
     return "未命名拼豆图";
   }
 
-  if (trimmed.startsWith("鏂板缓鎷艰眴鍥") || trimmed.startsWith("新建拼豆图")) {
+  if (
+    trimmed.startsWith("鏂板缓鎷艰眴鍥") ||
+    trimmed.startsWith("新建拼豆图")
+  ) {
     const timeMatch = trimmed.match(/(\d{2}:\d{2})/);
     return `新建拼豆图 ${timeMatch?.[1] ?? ""}`.trim();
   }
@@ -1191,7 +1223,7 @@ function serializeProjectState(state: EditorStoreState): SerializedProjectFile {
     project: {
       name: sanitizeProjectName(state.name),
       canvas: state.canvas,
-      sourceImage: state.sourceImage,
+      sourceImage: serializeSourceImage(state.sourceImage),
       currentSelection: state.currentSelection,
       beadGrid: state.beadGrid
         ? {
@@ -1247,6 +1279,7 @@ function normalizeSerializedProject(project: SerializedProjectFile["project"]) {
     ...project,
     name: sanitizeProjectName(project.name),
     canvas: sanitizeCanvasSize(project.canvas),
+    sourceImage: deserializeSourceImage(project.sourceImage),
     currentSelection: project.currentSelection ?? null,
     enabledPaletteIds,
     activeColorId,
@@ -1256,13 +1289,38 @@ function normalizeSerializedProject(project: SerializedProjectFile["project"]) {
 function persistProjectState(state: EditorStoreState) {
   const serialized = serializeProjectState(state);
   if (typeof window !== "undefined") {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(serialized));
+      hasShownStorageQuotaNotice = false;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "QuotaExceededError") {
+        const fallbackSerialized = {
+          ...serialized,
+          project: {
+            ...serialized.project,
+            sourceImage: serializeSourceImage(null),
+          },
+        } satisfies SerializedProjectFile;
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(fallbackSerialized));
+        if (!hasShownStorageQuotaNotice) {
+          notifyInfo(
+            "图片未写入本地缓存",
+            "当前图片体积过大，页面刷新后需要重新上传，但当前会话内仍可继续编辑。",
+          );
+          hasShownStorageQuotaNotice = true;
+        }
+      } else {
+        notifyError("本地保存失败", error instanceof Error ? error.message : "无法写入本地缓存");
+        throw error;
+      }
+    }
   }
 
   const persistedState = deserializeProjectFile(serialized);
 
   return {
     ...persistedState,
+    sourceImage: state.sourceImage,
     selectionClipboard: state.selectionClipboard,
     undoStack: state.undoStack,
     redoStack: state.redoStack,
@@ -1340,6 +1398,39 @@ function deriveStateFromProject(projectFile: SerializedProjectFile | null) {
   }
 
   return persistProjectState(deserializeProjectFile(projectFile));
+}
+
+function serializeSourceImage(sourceImage: SourceImage | null): SerializedSourceImage | null {
+  if (!sourceImage) {
+    return null;
+  }
+
+  const persistableSrc =
+    sourceImage.src.startsWith("data:") && sourceImage.src.length <= 1_500_000
+      ? sourceImage.src
+      : null;
+
+  return {
+    name: sourceImage.name,
+    width: sourceImage.width,
+    height: sourceImage.height,
+    src: persistableSrc,
+  };
+}
+
+function deserializeSourceImage(
+  sourceImage: SerializedSourceImage | null | undefined,
+): SourceImage | null {
+  if (!sourceImage) {
+    return null;
+  }
+
+  return {
+    name: sourceImage.name,
+    width: sourceImage.width,
+    height: sourceImage.height,
+    src: sourceImage.src ?? "",
+  };
 }
 
 function floodFillCells(

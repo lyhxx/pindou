@@ -136,6 +136,42 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }, []);
 
     useLayoutEffect(() => {
+      const shellNode = shellRef.current;
+      if (!shellNode) {
+        return;
+      }
+
+      function handleNativeWheel(event: WheelEvent) {
+        event.preventDefault();
+
+        const node = shellRef.current;
+        if (!node) {
+          return;
+        }
+
+        const rect = node.getBoundingClientRect();
+        const pointerX = event.clientX - rect.left - rect.width / 2;
+        const pointerY = event.clientY - rect.top - rect.height / 2;
+        const currentScale = stageViewport.scale;
+        const scaleDelta = event.deltaY < 0 ? 1.08 : 0.92;
+        const nextScale = clampNumber(currentScale * scaleDelta, 0.35, 8);
+        const ratio = nextScale / currentScale;
+
+        onViewportChange({
+          scale: nextScale,
+          offsetX: pointerX - ratio * (pointerX - stageViewport.offsetX),
+          offsetY: pointerY - ratio * (pointerY - stageViewport.offsetY),
+        });
+      }
+
+      shellNode.addEventListener("wheel", handleNativeWheel, { passive: false });
+
+      return () => {
+        shellNode.removeEventListener("wheel", handleNativeWheel);
+      };
+    }, [onViewportChange, stageViewport.offsetX, stageViewport.offsetY, stageViewport.scale]);
+
+    useLayoutEffect(() => {
       draw();
     }, [activeTool, beadGrid, canvas, hoverCell, selectionRect, showGrid, stageViewport]);
 
@@ -378,29 +414,6 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         Math.max(1, cellHeight - 2),
       );
       context.restore();
-    }
-
-    function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
-      event.preventDefault();
-
-      const shellNode = shellRef.current;
-      if (!shellNode) {
-        return;
-      }
-
-      const rect = shellNode.getBoundingClientRect();
-      const pointerX = event.clientX - rect.left - rect.width / 2;
-      const pointerY = event.clientY - rect.top - rect.height / 2;
-      const currentScale = stageViewport.scale;
-      const scaleDelta = event.deltaY < 0 ? 1.08 : 0.92;
-      const nextScale = clampNumber(currentScale * scaleDelta, 0.35, 8);
-      const ratio = nextScale / currentScale;
-
-      onViewportChange({
-        scale: nextScale,
-        offsetX: pointerX - ratio * (pointerX - stageViewport.offsetX),
-        offsetY: pointerY - ratio * (pointerY - stageViewport.offsetY),
-      });
     }
 
     function handleContextMenu(event: React.MouseEvent<HTMLDivElement>) {
@@ -717,7 +730,6 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         onPointerLeave={handlePointerLeave}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
-        onWheel={handleWheel}
       >
         <canvas
           ref={canvasRef}

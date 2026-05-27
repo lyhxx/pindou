@@ -48,10 +48,18 @@ export type SourceImage = {
   src: string;
 };
 
+export type SerializedSourceImage = {
+  name: string;
+  width: number;
+  height: number;
+  src?: string | null;
+};
+
 export type ProcessingSettings = {
   removeBackground: boolean;
   tolerance: number;
   dithering: DitheringMode;
+  edgeCleanup: boolean;
 };
 
 export type ProjectState = {
@@ -75,7 +83,7 @@ export type SerializedProjectFile = {
   project: {
     name: string;
     canvas: CanvasSize;
-    sourceImage: SourceImage | null;
+    sourceImage: SerializedSourceImage | null;
     beadGrid: SerializedBeadGrid | null;
     currentSelection: RectSelection | null;
     imageTransform: ViewTransform;
