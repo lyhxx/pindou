@@ -1,7 +1,5 @@
 export type EditorTool = "paint" | "erase" | "picker" | "pan" | "fill" | "select";
 
-export type DitheringMode = "none" | "floyd-steinberg";
-
 export type CanvasSize = {
   width: number;
   height: number;
@@ -56,10 +54,6 @@ export type SerializedSourceImage = {
 };
 
 export type ProcessingSettings = {
-  removeBackground: boolean;
-  tolerance: number;
-  dithering: DitheringMode;
-  edgeCleanup: boolean;
 };
 
 export type ProjectState = {

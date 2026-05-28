@@ -1,7 +1,6 @@
 import type {
   BeadGrid,
   CanvasSize,
-  DitheringMode,
   RectSelection,
   SerializedProjectFile,
   SourceImage,
@@ -22,21 +21,21 @@ const EXPORT_RULER_SIZE = 34;
 const EXPORT_MIN_CELL_SIZE = 8;
 const EXPORT_MAX_CELL_SIZE = 28;
 const EXPORT_DRAW_SIZE = 2200;
-const EXPORT_HEADER_HEIGHT = 104;
-const EXPORT_FOOTER_MIN_HEIGHT = 120;
+const EXPORT_MIN_INFO_WIDTH = 960;
+const EXPORT_HEADER_HEIGHT = 132;
+const EXPORT_FOOTER_MIN_HEIGHT = 176;
 const EXPORT_PIXEL_RATIO = 2;
 const MAX_EXPORT_BITMAP_SIDE = 16384;
+const EXPORT_LEGEND_ITEM_HEIGHT = 44;
+const EDGE_CONNECTED_WHITE_LUMA_MIN = 238;
+const EDGE_CONNECTED_WHITE_CHROMA_MAX = 24;
 const TRIMMABLE_BACKGROUND_COLOR_IDS = new Set(["W01", "W02", "W03", "S01"]);
 
 export async function generateBeadGrid(options: {
   canvas: CanvasSize;
   sourceImage: SourceImage;
   imageTransform: ViewTransform;
-  dithering: DitheringMode;
-  removeBackground: boolean;
-  tolerance: number;
   enabledPaletteIds: string[];
-  edgeCleanup: boolean;
 }) {
   const image = await loadImage(options.sourceImage.src);
   const sampleSurface = renderSourceToSampleSurface({
@@ -44,10 +43,6 @@ export async function generateBeadGrid(options: {
     image,
     imageTransform: options.imageTransform,
   });
-
-  if (options.removeBackground) {
-    removeConnectedBackground(sampleSurface.imageData, options.tolerance);
-  }
 
   const enabledPaletteIndices = normalizeEnabledPaletteIds(options.enabledPaletteIds)
     .map((colorId) => findPaletteIndexById(colorId))
@@ -61,27 +56,19 @@ export async function generateBeadGrid(options: {
     canvas: options.canvas,
     imageData: sampleSurface.imageData,
   });
+  const normalizedSampledGrid = stripConnectedNearWhiteBackground(sampledGrid);
 
-  const beadGrid =
-    options.dithering === "floyd-steinberg"
-      ? quantizeWithDithering(sampledGrid, enabledPaletteIndices)
-      : quantizeNearest(sampledGrid, enabledPaletteIndices);
-
-  return options.edgeCleanup ? cleanupEdgeNoise(beadGrid) : beadGrid;
+  return quantizeNearest(normalizedSampledGrid, enabledPaletteIndices);
 }
 
 export async function generatePreviewBeadGrid(options: {
   canvas: CanvasSize;
   sourceImage: SourceImage;
   imageTransform: ViewTransform;
-  dithering: DitheringMode;
-  removeBackground: boolean;
-  tolerance: number;
   enabledPaletteIds: string[];
 }) {
   return generateBeadGrid({
     ...options,
-    edgeCleanup: false,
   });
 }
 
@@ -159,10 +146,6 @@ export function exportProjectJson(options: {
   currentSelection: RectSelection | null;
   name: string;
   processing: {
-    removeBackground: boolean;
-    tolerance: number;
-    dithering: DitheringMode;
-    edgeCleanup: boolean;
   };
   sourceImage: SourceImage | null;
   imageTransform: ViewTransform;
@@ -231,10 +214,6 @@ export function parseProjectJson(raw: string): SerializedProjectFile {
           ? projectFile.project.activeColorId ?? defaultPaletteIds[0]
           : enabledPaletteIds[0],
       processing: {
-        removeBackground: Boolean(projectFile.project.processing?.removeBackground),
-        tolerance: projectFile.project.processing?.tolerance ?? 24,
-        dithering: projectFile.project.processing?.dithering ?? "none",
-        edgeCleanup: projectFile.project.processing?.edgeCleanup ?? false,
       },
     },
   } as SerializedProjectFile;
@@ -546,10 +525,15 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
   const paperWidth = beadGrid.width * cellSize;
   const paperHeight = beadGrid.height * cellSize;
   const colorStats = buildColorStats(beadGrid);
-  const legendColumns = colorStats.length > 12 ? 3 : colorStats.length > 6 ? 2 : 1;
+  const baseContentWidth = rulerSize * 2 + paperWidth;
+  const infoWidth = Math.max(baseContentWidth, EXPORT_MIN_INFO_WIDTH);
+  const legendColumns = getLegendColumnCount(infoWidth - 32, colorStats.length);
   const legendRows = Math.max(1, Math.ceil(Math.max(1, colorStats.length) / legendColumns));
-  const footerHeight = Math.max(EXPORT_FOOTER_MIN_HEIGHT, 64 + legendRows * 24);
-  const logicalWidth = EXPORT_MARGIN * 2 + rulerSize * 2 + paperWidth;
+  const footerHeight = Math.max(
+    EXPORT_FOOTER_MIN_HEIGHT,
+    80 + legendRows * EXPORT_LEGEND_ITEM_HEIGHT,
+  );
+  const logicalWidth = EXPORT_MARGIN * 2 + infoWidth;
   const logicalHeight =
     EXPORT_MARGIN * 2 + EXPORT_HEADER_HEIGHT + rulerSize * 2 + paperHeight + footerHeight;
   const { canvas, context } = createExportCanvas(logicalWidth, logicalHeight);
@@ -557,7 +541,9 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
     throw new Error("无法初始化图纸导出画布。");
   }
 
-  const paperLeft = EXPORT_MARGIN + rulerSize;
+  const contentLeft = EXPORT_MARGIN;
+  const contentOffsetX = Math.max(0, Math.floor((infoWidth - baseContentWidth) / 2));
+  const paperLeft = contentLeft + contentOffsetX + rulerSize;
   const paperTop = EXPORT_MARGIN + EXPORT_HEADER_HEIGHT + rulerSize;
   const paperRight = paperLeft + paperWidth;
   const paperBottom = paperTop + paperHeight;
@@ -569,9 +555,9 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
     name,
     beadGrid,
     colorStats,
-    left: EXPORT_MARGIN,
+    left: contentLeft,
     top: EXPORT_MARGIN,
-    width: logicalWidth - EXPORT_MARGIN * 2,
+    width: infoWidth,
     height: EXPORT_HEADER_HEIGHT - 12,
   });
 
@@ -603,9 +589,9 @@ function renderFormalPatternChart(beadGrid: BeadGrid, name: string) {
   drawFormalPatternFooter(context, {
     beadGrid,
     colorStats,
-    left: EXPORT_MARGIN,
+    left: contentLeft,
     top: paperBottom + rulerSize + 12,
-    width: logicalWidth - EXPORT_MARGIN * 2,
+    width: infoWidth,
     height: footerHeight - 12,
     columns: legendColumns,
   });
@@ -649,7 +635,6 @@ function drawPatternRulers(
 ) {
   const paperWidth = width * cellSize;
   const paperHeight = height * cellSize;
-  const labelStep = getRulerLabelStep(cellSize);
 
   context.fillStyle = "#f6f1e8";
   context.fillRect(paperLeft, paperTop - rulerSize, paperWidth, rulerSize);
@@ -674,10 +659,6 @@ function drawPatternRulers(
   context.textBaseline = "middle";
 
   for (let x = 0; x < width; x += 1) {
-    if ((x + 1) % labelStep !== 0 && x !== 0 && x !== width - 1) {
-      continue;
-    }
-
     const centerX = paperLeft + x * cellSize + cellSize / 2;
     const label = String(x + 1);
     context.fillText(label, centerX, paperTop - rulerSize / 2);
@@ -685,10 +666,6 @@ function drawPatternRulers(
   }
 
   for (let y = 0; y < height; y += 1) {
-    if ((y + 1) % labelStep !== 0 && y !== 0 && y !== height - 1) {
-      continue;
-    }
-
     const centerY = paperTop + y * cellSize + cellSize / 2;
     const label = String(y + 1);
     context.fillText(label, paperLeft - rulerSize / 2, centerY);
@@ -823,41 +800,46 @@ function drawFormalPatternHeader(
   context.fillText(name, left + 18, top + 16);
 
   context.fillStyle = "#7a6c5b";
-  context.font = '12px "IBM Plex Mono", monospace';
+  context.font = '12px "HarmonyOS Sans SC", "Noto Sans SC", sans-serif';
   context.fillText(
-    `图纸 ${beadGrid.width} x ${beadGrid.height}    用色 ${colorStats.length}    实心 ${filledCount}`,
+    `图纸 ${beadGrid.width} x ${beadGrid.height}  ·  用色 ${colorStats.length}  ·  实心 ${filledCount}  ·  导出 ${generatedAt}`,
     left + 18,
-    top + 50,
+    top + 54,
   );
-  context.fillText(`导出 ${generatedAt}`, left + 18, top + 70);
 
-  const topColors = colorStats.slice(0, 2);
-  const chipWidth = 118;
-  const chipGap = 10;
-  const startX =
-    left +
-    width -
-    topColors.length * chipWidth -
-    Math.max(0, topColors.length - 1) * chipGap -
-    18;
+  context.strokeStyle = "rgba(141, 128, 111, 0.28)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(left + 18, top + 76);
+  context.lineTo(left + width - 18, top + 76);
+  context.stroke();
+
+  const topColors = colorStats.slice(0, 3);
+  if (topColors.length === 0) {
+    return;
+  }
+
+  context.fillStyle = "#7a6c5b";
+  context.font = '11px "HarmonyOS Sans SC", "Noto Sans SC", sans-serif';
+  context.fillText("主要颜色", left + 18, top + 90);
 
   topColors.forEach((item, index) => {
-    const chipLeft = startX + index * (chipWidth + chipGap);
-    const chipTop = top + 18;
-    context.fillStyle = "#fffdf8";
-    context.fillRect(chipLeft, chipTop, chipWidth, 28);
-    context.strokeStyle = "#d4c5b3";
-    context.strokeRect(chipLeft, chipTop, chipWidth, 28);
+    const rowLeft = left + 88 + index * 164;
+    const rowTop = top + 84;
+    const swatchTop = rowTop + 5;
+    const rowCenterY = rowTop + 13;
     context.fillStyle = item.color.hex;
-    context.fillRect(chipLeft + 8, chipTop + 7, 14, 14);
+    context.fillRect(rowLeft, swatchTop, 16, 16);
     context.strokeStyle = "rgba(38, 34, 28, 0.12)";
-    context.strokeRect(chipLeft + 8, chipTop + 7, 14, 14);
+    context.strokeRect(rowLeft, swatchTop, 16, 16);
     context.fillStyle = "#3b342c";
+    context.textBaseline = "middle";
     context.font = '600 11px "IBM Plex Mono", monospace';
-    context.fillText(item.color.id, chipLeft + 28, chipTop + 7);
+    context.fillText(item.color.id, rowLeft + 24, rowCenterY);
     context.fillStyle = "#7a6c5b";
     context.font = '10px "HarmonyOS Sans SC", "Noto Sans SC", sans-serif';
-    context.fillText(String(item.count), chipLeft + 72, chipTop + 8);
+    context.fillText(`${item.color.name} · ${item.count}`, rowLeft + 58, rowCenterY);
+    context.textBaseline = "top";
   });
 }
 
@@ -897,6 +879,13 @@ function drawFormalPatternFooter(
     top + 32,
   );
 
+  context.strokeStyle = "rgba(141, 128, 111, 0.28)";
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(left + 16, top + 50);
+  context.lineTo(left + width - 16, top + 50);
+  context.stroke();
+
   const legendTop = top + 58;
   const legendWidth = width - 32;
   const columnGap = 12;
@@ -906,42 +895,60 @@ function drawFormalPatternFooter(
     const columnIndex = index % columns;
     const rowIndex = Math.floor(index / columns);
     const itemLeft = left + 16 + columnIndex * (columnWidth + columnGap);
-    const itemTop = legendTop + rowIndex * 24;
+    const itemTop = legendTop + rowIndex * EXPORT_LEGEND_ITEM_HEIGHT;
+    const rowCenterY = itemTop + 17;
+
+    if (rowIndex % 2 === 0) {
+      context.fillStyle = "rgba(255, 253, 248, 0.72)";
+      context.fillRect(itemLeft, itemTop, columnWidth, 34);
+    }
 
     context.fillStyle = item.color.hex;
-    context.fillRect(itemLeft, itemTop + 4, 12, 12);
+    context.fillRect(itemLeft + 10, itemTop + 10, 14, 14);
     context.strokeStyle = "rgba(38, 34, 28, 0.16)";
-    context.strokeRect(itemLeft, itemTop + 4, 12, 12);
+    context.strokeRect(itemLeft + 10, itemTop + 10, 14, 14);
 
     context.fillStyle = "#3b342c";
+    context.textBaseline = "middle";
     context.font = '600 11px "IBM Plex Mono", monospace';
-    context.fillText(item.color.id, itemLeft + 18, itemTop + 2);
+    context.fillText(item.color.id, itemLeft + 32, rowCenterY);
 
     context.fillStyle = "#7a6c5b";
     context.font = '10px "HarmonyOS Sans SC", "Noto Sans SC", sans-serif';
+    context.fillText(item.color.name, itemLeft + 72, rowCenterY);
+    context.textAlign = "right";
     context.fillText(
-      `${item.color.name} / ${item.count} / ${(item.ratio * 100).toFixed(1)}%`,
-      itemLeft + 52,
-      itemTop + 3,
+      `${item.count} / ${(item.ratio * 100).toFixed(1)}%`,
+      itemLeft + columnWidth - 10,
+      rowCenterY,
     );
+    context.textAlign = "left";
+    context.textBaseline = "top";
+
+    context.strokeStyle = "rgba(212, 197, 179, 0.42)";
+    context.beginPath();
+    context.moveTo(itemLeft, itemTop + 34);
+    context.lineTo(itemLeft + columnWidth, itemTop + 34);
+    context.stroke();
   });
 }
 
-function getRulerLabelStep(cellSize: number) {
-  if (cellSize >= 24) {
+function getLegendColumnCount(legendWidth: number, colorCount: number) {
+  if (colorCount <= 4) {
     return 1;
   }
 
-  if (cellSize >= 16) {
+  if (legendWidth >= 860 && colorCount > 10) {
+    return 3;
+  }
+
+  if (legendWidth >= 560 && colorCount > 5) {
     return 2;
   }
 
-  if (cellSize >= 12) {
-    return 5;
-  }
-
-  return 10;
+  return 1;
 }
+
 
 function getReadableTextColor(rgb: [number, number, number]) {
   const luminance = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
@@ -1000,97 +1007,6 @@ function renderSourceToSampleSurface(options: {
   };
 }
 
-function removeConnectedBackground(imageData: ImageData, tolerance: number) {
-  const { width, height, data } = imageData;
-  const samples = collectBorderPixels(imageData);
-  if (samples.length === 0) {
-    return;
-  }
-  const background = averagePixels(samples);
-  const visited = new Uint8Array(width * height);
-  const queue = new Uint32Array(width * height);
-  let head = 0;
-  let tail = 0;
-
-  function enqueue(x: number, y: number) {
-    const index = y * width + x;
-    if (visited[index]) {
-      return;
-    }
-    const offset = index * 4;
-    const alpha = data[offset + 3];
-    visited[index] = 1;
-    if (alpha < MIN_VISIBLE_ALPHA) {
-      data[offset + 3] = 0;
-      queue[tail] = index;
-      tail += 1;
-      return;
-    }
-    if (pixelDistanceToColor(data, offset, background) <= tolerance) {
-      data[offset + 3] = 0;
-      queue[tail] = index;
-      tail += 1;
-    }
-  }
-
-  for (let x = 0; x < width; x += 1) {
-    enqueue(x, 0);
-    enqueue(x, height - 1);
-  }
-
-  for (let y = 1; y < height - 1; y += 1) {
-    enqueue(0, y);
-    enqueue(width - 1, y);
-  }
-
-  while (head < tail) {
-    const index = queue[head];
-    head += 1;
-    const x = index % width;
-    const y = Math.floor(index / width);
-    if (x > 0) enqueue(x - 1, y);
-    if (x + 1 < width) enqueue(x + 1, y);
-    if (y > 0) enqueue(x, y - 1);
-    if (y + 1 < height) enqueue(x, y + 1);
-  }
-}
-
-function collectBorderPixels(imageData: ImageData) {
-  const { width, height, data } = imageData;
-  const samples: Array<[number, number, number]> = [];
-
-  function pushPixel(x: number, y: number) {
-    const offset = (y * width + x) * 4;
-    if (data[offset + 3] < MIN_VISIBLE_ALPHA) {
-      return;
-    }
-    samples.push([data[offset], data[offset + 1], data[offset + 2]]);
-  }
-
-  for (let x = 0; x < width; x += 1) {
-    pushPixel(x, 0);
-    pushPixel(x, height - 1);
-  }
-
-  for (let y = 1; y < height - 1; y += 1) {
-    pushPixel(0, y);
-    pushPixel(width - 1, y);
-  }
-
-  return samples;
-}
-
-function pixelDistanceToColor(
-  data: Uint8ClampedArray,
-  offset: number,
-  color: [number, number, number],
-) {
-  const deltaR = data[offset] - color[0];
-  const deltaG = data[offset + 1] - color[1];
-  const deltaB = data[offset + 2] - color[2];
-  return Math.sqrt(deltaR * deltaR + deltaG * deltaG + deltaB * deltaB);
-}
-
 export function replaceEdgeColor(
   beadGrid: BeadGrid | null,
   fromColorIndex: number,
@@ -1103,6 +1019,8 @@ export function replaceEdgeColor(
   const nextCells = new Uint16Array(beadGrid.cells);
   let changed = false;
   const { width, height } = beadGrid;
+  const exteriorMask = buildExteriorEmptyMask(beadGrid);
+  const edgeBandMask = buildEdgeBandMask(beadGrid, exteriorMask, 2);
 
   for (let y = 0; y < height; y += 1) {
     for (let x = 0; x < width; x += 1) {
@@ -1113,9 +1031,10 @@ export function replaceEdgeColor(
 
       const neighborhood = collectNeighborColors(nextCells, width, height, x, y);
       const sameColorCount = neighborhood.filter((colorIndex) => colorIndex === fromColorIndex).length;
-      const emptyCount = neighborhood.filter((colorIndex) => colorIndex === EMPTY_CELL).length;
+      const touchesExterior = touchesExteriorMask(width, height, x, y, exteriorMask);
+      const insideEdgeBand = edgeBandMask[index] === 1;
 
-      if (sameColorCount <= 2 || emptyCount >= 1) {
+      if ((touchesExterior || insideEdgeBand) && sameColorCount <= 4) {
         nextCells[index] = toColorIndex;
         changed = true;
       }
@@ -1132,46 +1051,141 @@ export function replaceEdgeColor(
   };
 }
 
-function cleanupEdgeNoise(beadGrid: BeadGrid) {
-  const nextCells = new Uint16Array(beadGrid.cells);
-  const { width, height } = beadGrid;
-  let changed = false;
+function buildExteriorEmptyMask(beadGrid: BeadGrid) {
+  const { width, height, cells } = beadGrid;
+  const mask = new Uint8Array(width * height);
+  const queue: number[] = [];
+  const borderBackgroundColorIndex = findConnectedBorderBackgroundColor(beadGrid);
 
-  for (let y = 0; y < height; y += 1) {
-    for (let x = 0; x < width; x += 1) {
-      const index = y * width + x;
-      const current = nextCells[index];
-      if (current === EMPTY_CELL) {
+  function enqueue(index: number) {
+    if (index < 0 || index >= cells.length || mask[index]) {
+      return;
+    }
+
+    const colorIndex = cells[index];
+    const isExterior =
+      colorIndex === EMPTY_CELL ||
+      (borderBackgroundColorIndex !== null && colorIndex === borderBackgroundColorIndex);
+
+    if (!isExterior) {
+      return;
+    }
+
+    mask[index] = 1;
+    queue.push(index);
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x);
+    enqueue((height - 1) * width + x);
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(y * width);
+    enqueue(y * width + (width - 1));
+  }
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    if (x > 0) enqueue(index - 1);
+    if (x + 1 < width) enqueue(index + 1);
+    if (y > 0) enqueue(index - width);
+    if (y + 1 < height) enqueue(index + width);
+  }
+
+  return mask;
+}
+
+function buildEdgeBandMask(
+  beadGrid: BeadGrid,
+  exteriorMask: Uint8Array,
+  depth: number,
+) {
+  const { width, height, cells } = beadGrid;
+  const mask = new Uint8Array(width * height);
+  const distance = new Int16Array(width * height);
+  distance.fill(-1);
+  const queue: number[] = [];
+
+  for (let index = 0; index < cells.length; index += 1) {
+    if (cells[index] === EMPTY_CELL) {
+      continue;
+    }
+
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    if (touchesExteriorMask(width, height, x, y, exteriorMask)) {
+      mask[index] = 1;
+      distance[index] = 0;
+      queue.push(index);
+    }
+  }
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    const currentDistance = distance[index];
+    if (currentDistance >= depth - 1) {
+      continue;
+    }
+
+    const x = index % width;
+    const y = Math.floor(index / width);
+    const neighbors = [
+      [x - 1, y],
+      [x + 1, y],
+      [x, y - 1],
+      [x, y + 1],
+    ] as const;
+
+    for (const [nextX, nextY] of neighbors) {
+      if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) {
         continue;
       }
 
-      const neighborhood = collectNeighborColors(nextCells, width, height, x, y);
-      const nonEmptyNeighbors = neighborhood.filter((colorIndex) => colorIndex !== EMPTY_CELL);
-      if (nonEmptyNeighbors.length === 0) {
+      const nextIndex = nextY * width + nextX;
+      if (cells[nextIndex] === EMPTY_CELL || distance[nextIndex] !== -1) {
         continue;
       }
 
-      const sameColorCount = nonEmptyNeighbors.filter((colorIndex) => colorIndex === current).length;
-      if (sameColorCount >= 3) {
+      distance[nextIndex] = currentDistance + 1;
+      mask[nextIndex] = 1;
+      queue.push(nextIndex);
+    }
+  }
+
+  return mask;
+}
+
+function touchesExteriorMask(
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  exteriorMask: Uint8Array,
+) {
+  for (let offsetY = -1; offsetY <= 1; offsetY += 1) {
+    for (let offsetX = -1; offsetX <= 1; offsetX += 1) {
+      if (offsetX === 0 && offsetY === 0) {
         continue;
       }
 
-      const dominantNeighbor = findDominantNeighbor(nonEmptyNeighbors, current);
-      if (dominantNeighbor !== null && dominantNeighbor !== current) {
-        nextCells[index] = dominantNeighbor;
-        changed = true;
+      const nextX = x + offsetX;
+      const nextY = y + offsetY;
+      if (nextX < 0 || nextY < 0 || nextX >= width || nextY >= height) {
+        return true;
+      }
+
+      if (exteriorMask[nextY * width + nextX]) {
+        return true;
       }
     }
   }
 
-  if (!changed) {
-    return beadGrid;
-  }
-
-  return {
-    ...beadGrid,
-    cells: nextCells,
-  };
+  return false;
 }
 
 function collectNeighborColors(
@@ -1197,27 +1211,6 @@ function collectNeighborColors(
     }
   }
   return neighbors;
-}
-
-function findDominantNeighbor(neighbors: number[], current: number) {
-  const counts = new Map<number, number>();
-  for (const neighbor of neighbors) {
-    if (neighbor === EMPTY_CELL || neighbor === current) {
-      continue;
-    }
-    counts.set(neighbor, (counts.get(neighbor) ?? 0) + 1);
-  }
-
-  let winner: number | null = null;
-  let winnerCount = 0;
-  for (const [colorIndex, count] of counts.entries()) {
-    if (count > winnerCount) {
-      winner = colorIndex;
-      winnerCount = count;
-    }
-  }
-
-  return winnerCount >= 3 ? winner : null;
 }
 
 function sampleGridFromImageData(options: {
@@ -1322,6 +1315,84 @@ function sampleGridFromImageData(options: {
   };
 }
 
+function stripConnectedNearWhiteBackground(sampledGrid: {
+  width: number;
+  height: number;
+  samples: Array<{ r: number; g: number; b: number; a: number } | null>;
+}) {
+  const { width, height, samples } = sampledGrid;
+  const backgroundMask = new Uint8Array(width * height);
+  const queue: number[] = [];
+
+  function enqueue(index: number) {
+    if (index < 0 || index >= samples.length || backgroundMask[index]) {
+      return;
+    }
+
+    const sample = samples[index];
+    if (!sample || !isEdgeConnectedWhiteSample(sample)) {
+      return;
+    }
+
+    backgroundMask[index] = 1;
+    queue.push(index);
+  }
+
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x);
+    enqueue((height - 1) * width + x);
+  }
+
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(y * width);
+    enqueue(y * width + (width - 1));
+  }
+
+  if (queue.length === 0) {
+    return sampledGrid;
+  }
+
+  while (queue.length > 0) {
+    const index = queue.shift()!;
+    const x = index % width;
+    const y = Math.floor(index / width);
+
+    if (x > 0) enqueue(index - 1);
+    if (x + 1 < width) enqueue(index + 1);
+    if (y > 0) enqueue(index - width);
+    if (y + 1 < height) enqueue(index + width);
+  }
+
+  const nextSamples = [...samples];
+  let changed = false;
+
+  for (let index = 0; index < nextSamples.length; index += 1) {
+    if (backgroundMask[index] === 1 && nextSamples[index] !== null) {
+      nextSamples[index] = null;
+      changed = true;
+    }
+  }
+
+  if (!changed) {
+    return sampledGrid;
+  }
+
+  return {
+    width,
+    height,
+    samples: nextSamples,
+  };
+}
+
+function isEdgeConnectedWhiteSample(sample: { r: number; g: number; b: number; a: number }) {
+  const maxChannel = Math.max(sample.r, sample.g, sample.b);
+  const minChannel = Math.min(sample.r, sample.g, sample.b);
+  const luma = (sample.r + sample.g + sample.b) / 3;
+  const chroma = maxChannel - minChannel;
+
+  return luma >= EDGE_CONNECTED_WHITE_LUMA_MIN && chroma <= EDGE_CONNECTED_WHITE_CHROMA_MAX;
+}
+
 function quantizeNearest(
   sampledGrid: {
     width: number;
@@ -1347,138 +1418,6 @@ function quantizeNearest(
     height: sampledGrid.height,
     cells,
   };
-}
-
-function quantizeWithDithering(
-  sampledGrid: {
-    width: number;
-    height: number;
-    samples: Array<{ r: number; g: number; b: number; a: number } | null>;
-  },
-  enabledPaletteIndices: number[],
-): BeadGrid {
-  const cells = new Uint16Array(sampledGrid.width * sampledGrid.height);
-  const working = sampledGrid.samples.map((sample) => (sample ? { ...sample } : null));
-
-  for (let y = 0; y < sampledGrid.height; y += 1) {
-    for (let x = 0; x < sampledGrid.width; x += 1) {
-      const index = y * sampledGrid.width + x;
-      const sample = working[index];
-
-      if (!sample) {
-        cells[index] = EMPTY_CELL;
-        continue;
-      }
-
-      const nearestIndex = findNearestPaletteIndex(
-        sample.r,
-        sample.g,
-        sample.b,
-        enabledPaletteIndices,
-      );
-
-      cells[index] = nearestIndex;
-
-      const paletteColor = defaultPalette[nearestIndex];
-      const errorR = sample.r - paletteColor.rgb[0];
-      const errorG = sample.g - paletteColor.rgb[1];
-      const errorB = sample.b - paletteColor.rgb[2];
-
-      diffuseError(
-        working,
-        sampledGrid.width,
-        sampledGrid.height,
-        x + 1,
-        y,
-        errorR,
-        errorG,
-        errorB,
-        7 / 16,
-      );
-      diffuseError(
-        working,
-        sampledGrid.width,
-        sampledGrid.height,
-        x - 1,
-        y + 1,
-        errorR,
-        errorG,
-        errorB,
-        3 / 16,
-      );
-      diffuseError(
-        working,
-        sampledGrid.width,
-        sampledGrid.height,
-        x,
-        y + 1,
-        errorR,
-        errorG,
-        errorB,
-        5 / 16,
-      );
-      diffuseError(
-        working,
-        sampledGrid.width,
-        sampledGrid.height,
-        x + 1,
-        y + 1,
-        errorR,
-        errorG,
-        errorB,
-        1 / 16,
-      );
-    }
-  }
-
-  return {
-    width: sampledGrid.width,
-    height: sampledGrid.height,
-    cells,
-  };
-}
-
-function diffuseError(
-  samples: Array<{ r: number; g: number; b: number; a: number } | null>,
-  width: number,
-  height: number,
-  x: number,
-  y: number,
-  errorR: number,
-  errorG: number,
-  errorB: number,
-  factor: number,
-) {
-  if (x < 0 || y < 0 || x >= width || y >= height) {
-    return;
-  }
-
-  const sample = samples[y * width + x];
-  if (!sample) {
-    return;
-  }
-
-  sample.r = clampChannel(sample.r + errorR * factor);
-  sample.g = clampChannel(sample.g + errorG * factor);
-  sample.b = clampChannel(sample.b + errorB * factor);
-}
-
-function averagePixels(pixels: Array<[number, number, number]>) {
-  const total = pixels.reduce<[number, number, number]>(
-    (acc, pixel) => {
-      acc[0] += pixel[0];
-      acc[1] += pixel[1];
-      acc[2] += pixel[2];
-      return acc;
-    },
-    [0, 0, 0],
-  );
-
-  return [
-    total[0] / pixels.length,
-    total[1] / pixels.length,
-    total[2] / pixels.length,
-  ] as [number, number, number];
 }
 
 function findNearestPaletteIndex(

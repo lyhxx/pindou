@@ -2,6 +2,19 @@
 
 All notable changes to this project will be recorded in this document.
 
+## 1.0.6 - 2026-05-28
+
+### Changed
+
+- 中间画布标尺区改为更宽的四边数字显示区域，低格数画布下的坐标阅读性更稳定
+- 中间画布网格与坐标从纯 `canvas` 位图渲染调整为 `canvas + SVG` 分层渲染，保持整张画布缩放语义不变的同时提升清晰度
+
+### Fixed
+
+- 修正低格数画布下四边坐标数字过小、过虚的问题
+- 修正中间画布细网格线在缩放后出现丢线、发灰的问题
+- 修正主题切换时画布标尺区域颜色同步存在延迟的问题
+
 ## 1.0.5 - 2026-05-28
 
 ### Added
@@ -95,7 +108,6 @@ All notable changes to this project will be recorded in this document.
 - 三栏编辑器布局与中间独立画布舞台
 - 图片上传、缩放、平移、本地预览
 - 图片转拼豆图纸能力
-- 抖动处理与去背景参数
 - 四边坐标尺
 - 画笔、橡皮、吸色、填充、框选
 - 选区编辑与颜色替换

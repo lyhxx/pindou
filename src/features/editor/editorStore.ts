@@ -2,7 +2,6 @@
 import type {
   BeadGrid,
   CanvasSize,
-  DitheringMode,
   EditorTool,
   ProjectState,
   RectSelection,
@@ -19,7 +18,11 @@ import {
   findPaletteIndexById,
   normalizeEnabledPaletteIds,
 } from "../palette/palette";
-import { generateBeadGrid, replaceEdgeColor, trimBeadGrid } from "./quantizeImage";
+import {
+  generateBeadGrid,
+  replaceEdgeColor,
+  trimBeadGrid,
+} from "./quantizeImage";
 import { notifyError, notifyInfo } from "../../shared/notifications/notificationStore";
 
 type HistoryEntry = {
@@ -56,9 +59,6 @@ type EditorStore = EditorStoreState & {
   setStageViewport: (transform: Partial<ViewTransform>) => void;
   resetStageViewport: () => void;
   fitStageToCanvas: () => void;
-  setDithering: (mode: DitheringMode) => void;
-  setRemoveBackground: (enabled: boolean) => void;
-  setTolerance: (tolerance: number) => void;
   setTool: (tool: EditorTool) => void;
   setShowGrid: (showGrid: boolean) => void;
   setActiveColorId: (colorId: string) => void;
@@ -71,7 +71,6 @@ type EditorStore = EditorStoreState & {
   generatePattern: () => Promise<void>;
   trimToDrawing: () => void;
   wrapDrawingWithPadding: (padding: number) => void;
-  centerDrawing: () => void;
   paintCell: (x: number, y: number) => void;
   eraseCell: (x: number, y: number) => void;
   fillArea: (x: number, y: number) => void;
@@ -123,12 +122,7 @@ const initialState: ProjectState = {
   currentSelection: null,
   imageTransform: defaultViewTransform,
   stageViewport: defaultViewTransform,
-  processing: {
-    removeBackground: false,
-    tolerance: 24,
-    dithering: "none",
-    edgeCleanup: false,
-  },
+  processing: {},
   enabledPaletteIds: [...defaultPaletteIds],
   activeTool: "paint",
   activeColorId: defaultPalette.find((color) => color.id === "R02")?.id ?? defaultPalette[2].id,
@@ -313,48 +307,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         state,
       ),
     ),
-  setDithering: (mode) =>
-    set((state) =>
-      mergePersistedState(
-        persistProjectState({
-          ...state,
-          processing: {
-            ...state.processing,
-            dithering: mode,
-          },
-          currentSelection: null,
-        }),
-        state,
-      ),
-    ),
-  setRemoveBackground: (enabled) =>
-    set((state) =>
-      mergePersistedState(
-        persistProjectState({
-          ...state,
-          processing: {
-            ...state.processing,
-            removeBackground: enabled,
-          },
-          currentSelection: null,
-        }),
-        state,
-      ),
-    ),
-  setTolerance: (tolerance) =>
-    set((state) =>
-      mergePersistedState(
-        persistProjectState({
-          ...state,
-          processing: {
-            ...state.processing,
-            tolerance,
-          },
-          currentSelection: null,
-        }),
-        state,
-      ),
-    ),
   setTool: (activeTool) =>
     set((state) =>
       mergePersistedState(persistProjectState({ ...state, activeTool }), state),
@@ -455,11 +407,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       canvas: state.canvas,
       sourceImage: state.sourceImage,
       imageTransform: state.imageTransform,
-      dithering: state.processing.dithering,
-      removeBackground: state.processing.removeBackground,
-      tolerance: state.processing.tolerance,
       enabledPaletteIds: state.enabledPaletteIds,
-      edgeCleanup: false,
     });
 
     set((currentState) =>
@@ -518,49 +466,6 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       });
 
       blitGrid(nextGrid, contentGrid, offsetX, offsetY);
-
-      return persistProjectState(
-        pushHistoryState(state, {
-          beadGrid: nextGrid,
-          canvas: {
-            width: nextWidth,
-            height: nextHeight,
-          },
-          currentSelection: null,
-          stageViewport: defaultViewTransform,
-        }),
-      );
-    }),
-  centerDrawing: () =>
-    set((state) => {
-      const contentBounds = findOccupiedBounds(state.beadGrid);
-
-      if (!contentBounds || !state.beadGrid) {
-        return state;
-      }
-
-      const contentGrid = cropGridToBounds(state.beadGrid, contentBounds);
-      const nextWidth = Math.max(state.canvas.width, contentGrid.width);
-      const nextHeight = Math.max(state.canvas.height, contentGrid.height);
-      const nextGrid = createEmptyGrid({
-        width: nextWidth,
-        height: nextHeight,
-      });
-      const offsetX = Math.max(0, Math.floor((nextWidth - contentGrid.width) / 2));
-      const offsetY = Math.max(0, Math.floor((nextHeight - contentGrid.height) / 2));
-
-      blitGrid(nextGrid, contentGrid, offsetX, offsetY);
-
-      const canvasChanged =
-        nextWidth !== state.canvas.width || nextHeight !== state.canvas.height;
-      const gridChanged =
-        nextGrid.width !== state.beadGrid.width ||
-        nextGrid.height !== state.beadGrid.height ||
-        !typedArraysEqual(nextGrid.cells, state.beadGrid.cells);
-
-      if (!canvasChanged && !gridChanged) {
-        return state;
-      }
 
       return persistProjectState(
         pushHistoryState(state, {
@@ -1392,9 +1297,13 @@ function loadStoredProject(): SerializedProjectFile | null {
   }
 }
 
+export function hasStoredEditorProject() {
+  return loadStoredProject() !== null;
+}
+
 function deriveStateFromProject(projectFile: SerializedProjectFile | null) {
   if (!projectFile) {
-    return persistProjectState(buildFreshEditorState({ name: createProjectName() }));
+    return buildFreshEditorState({ name: createProjectName() });
   }
 
   return persistProjectState(deserializeProjectFile(projectFile));
@@ -1606,17 +1515,4 @@ function blitGrid(target: BeadGrid, source: BeadGrid, offsetX: number, offsetY: 
   }
 }
 
-function typedArraysEqual(left: Uint16Array, right: Uint16Array) {
-  if (left.length !== right.length) {
-    return false;
-  }
-
-  for (let index = 0; index < left.length; index += 1) {
-    if (left[index] !== right[index]) {
-      return false;
-    }
-  }
-
-  return true;
-}
 

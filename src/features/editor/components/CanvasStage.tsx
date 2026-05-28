@@ -42,7 +42,7 @@ type CanvasStageProps = {
 };
 
 const CANVAS_SIZE = 1600;
-const RULER_SIZE = 30;
+const RULER_SIZE = 50;
 const GRID_MAJOR_STEP = 10;
 const PAPER_PADDING = 0;
 const MAX_DEVICE_PIXEL_RATIO = 3;
@@ -81,6 +81,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     forwardedRef,
   ) {
     const shellRef = useRef<HTMLDivElement | null>(null);
+    const stageSurfaceRef = useRef<HTMLDivElement | null>(null);
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
     const [displaySize, setDisplaySize] = useState({ width: 640, height: 640 });
     const [hoverCell, setHoverCell] = useState<{ x: number; y: number } | null>(null);
@@ -111,7 +112,35 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       lastDeltaX: number;
       lastDeltaY: number;
     } | null>(null);
-    const stageTheme = useMemo(() => readStageTheme(), [themeKey]);
+    const stageTheme = useMemo(() => resolveStageTheme(themeKey), [themeKey]);
+    const overlayMetrics = useMemo(() => {
+      const paperLeft = RULER_SIZE;
+      const paperTop = RULER_SIZE;
+      const paperRight = CANVAS_SIZE - RULER_SIZE;
+      const paperBottom = CANVAS_SIZE - RULER_SIZE;
+      const gridWidth = paperRight - paperLeft - PAPER_PADDING * 2;
+      const gridHeight = paperBottom - paperTop - PAPER_PADDING * 2;
+      const cellWidth = gridWidth / canvas.width;
+      const cellHeight = gridHeight / canvas.height;
+      const totalScreenScale = Math.max(
+        0.01,
+        (displaySize.width / CANVAS_SIZE) * stageViewport.scale,
+      );
+
+      return {
+        paperLeft,
+        paperTop,
+        paperRight,
+        paperBottom,
+        gridWidth,
+        gridHeight,
+        cellWidth,
+        cellHeight,
+        totalScreenScale,
+        visibleCellWidth: cellWidth * totalScreenScale,
+        visibleCellHeight: cellHeight * totalScreenScale,
+      };
+    }, [canvas.height, canvas.width, displaySize.width, stageViewport.scale]);
 
     useImperativeHandle(
       forwardedRef,
@@ -242,85 +271,22 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
       context.imageSmoothingEnabled = false;
 
-      const paperLeft = RULER_SIZE;
-      const paperTop = RULER_SIZE;
-      const paperRight = CANVAS_SIZE - RULER_SIZE;
-      const paperBottom = CANVAS_SIZE - RULER_SIZE;
-      const gridWidth = paperRight - paperLeft - PAPER_PADDING * 2;
-      const gridHeight = paperBottom - paperTop - PAPER_PADDING * 2;
-      const cellWidth = gridWidth / canvas.width;
-      const cellHeight = gridHeight / canvas.height;
-
+      const {
+        paperLeft,
+        paperTop,
+        paperRight,
+        paperBottom,
+        cellWidth,
+        cellHeight,
+      } = overlayMetrics;
       context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
       context.fillStyle = stageTheme.frameFill;
       context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-
-      drawRulers(
-        context,
-        cellWidth,
-        cellHeight,
-        paperLeft,
-        paperTop,
-        gridWidth,
-        gridHeight,
-        stageTheme,
-      );
       drawPaper(context, paperLeft, paperTop, paperRight - paperLeft, paperBottom - paperTop);
       drawGridFill(context, beadGrid, cellWidth, cellHeight, paperLeft, paperTop);
 
-      if (showGrid) {
-        drawGridLines(context, cellWidth, cellHeight, paperLeft, paperTop, gridWidth, gridHeight);
-      }
-
       drawSelectionRect(context, selectionRect, cellWidth, cellHeight, paperLeft, paperTop);
       drawHoverCell(context, hoverCell, cellWidth, cellHeight, paperLeft, paperTop);
-    }
-
-    function drawRulers(
-      context: CanvasRenderingContext2D,
-      cellWidth: number,
-      cellHeight: number,
-      paperLeft: number,
-      paperTop: number,
-      gridWidth: number,
-      gridHeight: number,
-      theme: StageTheme,
-    ) {
-      const paperRight = paperLeft + gridWidth;
-      const paperBottom = paperTop + gridHeight;
-
-      context.fillStyle = theme.rulerFill;
-      context.fillRect(paperLeft, 0, gridWidth, RULER_SIZE);
-      context.fillRect(paperLeft, paperBottom, gridWidth, RULER_SIZE);
-      context.fillRect(0, paperTop, RULER_SIZE, gridHeight);
-      context.fillRect(paperRight, paperTop, RULER_SIZE, gridHeight);
-      context.fillRect(0, 0, RULER_SIZE, RULER_SIZE);
-      context.fillRect(paperRight, 0, RULER_SIZE, RULER_SIZE);
-      context.fillRect(0, paperBottom, RULER_SIZE, RULER_SIZE);
-      context.fillRect(paperRight, paperBottom, RULER_SIZE, RULER_SIZE);
-
-      context.strokeStyle = theme.rulerBorder;
-      context.lineWidth = 1;
-      context.strokeRect(paperLeft, paperTop, gridWidth, gridHeight);
-
-      context.fillStyle = theme.rulerText;
-      context.font = "11px IBM Plex Mono, monospace";
-      context.textAlign = "center";
-      context.textBaseline = "middle";
-
-      for (let x = 0; x < canvas.width; x += 1) {
-        const centerX = paperLeft + x * cellWidth + cellWidth / 2;
-        const label = String(x + 1);
-        context.fillText(label, centerX, RULER_SIZE / 2);
-        context.fillText(label, centerX, paperBottom + RULER_SIZE / 2);
-      }
-
-      for (let y = 0; y < canvas.height; y += 1) {
-        const centerY = paperTop + y * cellHeight + cellHeight / 2;
-        const label = String(y + 1);
-        context.fillText(label, RULER_SIZE / 2, centerY);
-        context.fillText(label, paperRight + RULER_SIZE / 2, centerY);
-      }
     }
 
     function drawPaper(
@@ -365,38 +331,6 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       }
     }
 
-    function drawGridLines(
-      context: CanvasRenderingContext2D,
-      cellWidth: number,
-      cellHeight: number,
-      paperLeft: number,
-      paperTop: number,
-      gridWidth: number,
-      gridHeight: number,
-    ) {
-      context.save();
-      context.lineWidth = 1;
-
-      for (let x = 0; x <= canvas.width; x += 1) {
-        context.strokeStyle = x % GRID_MAJOR_STEP === 0 ? stageTheme.gridMajor : stageTheme.gridMinor;
-        context.beginPath();
-        const lineX = alignToPixel(paperLeft + x * cellWidth);
-        context.moveTo(lineX, paperTop);
-        context.lineTo(lineX, paperTop + gridHeight);
-        context.stroke();
-      }
-
-      for (let y = 0; y <= canvas.height; y += 1) {
-        context.strokeStyle = y % GRID_MAJOR_STEP === 0 ? stageTheme.gridMajor : stageTheme.gridMinor;
-        context.beginPath();
-        const lineY = alignToPixel(paperTop + y * cellHeight);
-        context.moveTo(paperLeft, lineY);
-        context.lineTo(paperLeft + gridWidth, lineY);
-        context.stroke();
-      }
-
-      context.restore();
-    }
 
     function drawSelectionRect(
       context: CanvasRenderingContext2D,
@@ -720,12 +654,12 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
     }
 
     function getCellFromPointer(clientX: number, clientY: number) {
-      const canvasNode = canvasRef.current;
-      if (!canvasNode) {
+      const stageNode = stageSurfaceRef.current;
+      if (!stageNode) {
         return null;
       }
 
-      const rect = canvasNode.getBoundingClientRect();
+      const rect = stageNode.getBoundingClientRect();
       const localX = ((clientX - rect.left) / rect.width) * CANVAS_SIZE;
       const localY = ((clientY - rect.top) / rect.height) * CANVAS_SIZE;
       const paperLeft = RULER_SIZE + PAPER_PADDING;
@@ -778,15 +712,36 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <canvas
-          ref={canvasRef}
-          className="canvas-stage"
+        <div
+          ref={stageSurfaceRef}
+          className="canvas-stage-surface"
           style={{
             width: `${displaySize.width}px`,
             height: `${displaySize.height}px`,
             transform: `translate(${stageViewport.offsetX}px, ${stageViewport.offsetY}px) scale(${stageViewport.scale})`,
           }}
-        />
+        >
+          <canvas
+            ref={canvasRef}
+            className="canvas-stage"
+            style={{
+              width: "100%",
+              height: "100%",
+            }}
+          />
+          <svg
+            className="canvas-stage-overlay"
+            viewBox={`0 0 ${CANVAS_SIZE} ${CANVAS_SIZE}`}
+            aria-hidden="true"
+          >
+            <StageOverlay
+              canvas={canvas}
+              metrics={overlayMetrics}
+              showGrid={showGrid}
+              theme={stageTheme}
+            />
+          </svg>
+        </div>
       </div>
     );
   },
@@ -798,6 +753,243 @@ function clampIndex(value: number, limit: number) {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
+}
+
+function StageOverlay({
+  canvas,
+  metrics,
+  showGrid,
+  theme,
+}: {
+  canvas: CanvasSize;
+  metrics: {
+    paperLeft: number;
+    paperTop: number;
+    paperRight: number;
+    paperBottom: number;
+    gridWidth: number;
+    gridHeight: number;
+    cellWidth: number;
+    cellHeight: number;
+    totalScreenScale: number;
+    visibleCellWidth: number;
+    visibleCellHeight: number;
+  };
+  showGrid: boolean;
+  theme: StageTheme;
+}) {
+  const {
+    paperLeft,
+    paperTop,
+    paperRight,
+    paperBottom,
+    gridWidth,
+    gridHeight,
+    cellWidth,
+    cellHeight,
+    totalScreenScale,
+    visibleCellWidth,
+    visibleCellHeight,
+  } = metrics;
+  const rulerFontSize = clampNumber(
+    clampNumber(Math.min(visibleCellWidth, visibleCellHeight) * 0.52, 10, 24) /
+      totalScreenScale,
+    12,
+    42,
+  );
+  const minorStroke = clampNumber(
+    Math.min(visibleCellWidth, visibleCellHeight) / 26,
+    0.95,
+    1.35,
+  );
+  const majorStroke = clampNumber(
+    Math.min(visibleCellWidth, visibleCellHeight) / 18,
+    1.2,
+    1.9,
+  );
+  const borderThickness = clampNumber(
+    Math.min(visibleCellWidth, visibleCellHeight) / 10,
+    2.6,
+    4.4,
+  ) / totalScreenScale;
+
+  return (
+    <>
+      <rect x={paperLeft} y={0} width={gridWidth} height={RULER_SIZE} fill={theme.rulerFill} />
+      <rect
+        x={paperLeft}
+        y={paperBottom}
+        width={gridWidth}
+        height={RULER_SIZE}
+        fill={theme.rulerFill}
+      />
+      <rect x={0} y={paperTop} width={RULER_SIZE} height={gridHeight} fill={theme.rulerFill} />
+      <rect
+        x={paperRight}
+        y={paperTop}
+        width={RULER_SIZE}
+        height={gridHeight}
+        fill={theme.rulerFill}
+      />
+      <rect x={0} y={0} width={RULER_SIZE} height={RULER_SIZE} fill={theme.rulerFill} />
+      <rect
+        x={paperRight}
+        y={0}
+        width={RULER_SIZE}
+        height={RULER_SIZE}
+        fill={theme.rulerFill}
+      />
+      <rect
+        x={0}
+        y={paperBottom}
+        width={RULER_SIZE}
+        height={RULER_SIZE}
+        fill={theme.rulerFill}
+      />
+      <rect
+        x={paperRight}
+        y={paperBottom}
+        width={RULER_SIZE}
+        height={RULER_SIZE}
+        fill={theme.rulerFill}
+      />
+
+      {showGrid
+        ? Array.from({ length: canvas.width + 1 }, (_, index) => {
+            const x = paperLeft + index * cellWidth;
+            const isMajor = index % GRID_MAJOR_STEP === 0;
+            return (
+              <line
+                key={`vx-${index}`}
+                x1={x}
+                y1={paperTop}
+                x2={x}
+                y2={paperBottom}
+                stroke={isMajor ? theme.gridMajor : theme.gridMinor}
+                strokeWidth={isMajor ? majorStroke : minorStroke}
+                vectorEffect="non-scaling-stroke"
+                shapeRendering="crispEdges"
+              />
+            );
+          })
+        : null}
+
+      {showGrid
+        ? Array.from({ length: canvas.height + 1 }, (_, index) => {
+            const y = paperTop + index * cellHeight;
+            const isMajor = index % GRID_MAJOR_STEP === 0;
+            return (
+              <line
+                key={`hy-${index}`}
+                x1={paperLeft}
+                y1={y}
+                x2={paperRight}
+                y2={y}
+                stroke={isMajor ? theme.gridMajor : theme.gridMinor}
+                strokeWidth={isMajor ? majorStroke : minorStroke}
+                vectorEffect="non-scaling-stroke"
+                shapeRendering="crispEdges"
+              />
+            );
+          })
+        : null}
+
+      <rect
+        x={paperLeft}
+        y={paperTop}
+        width={gridWidth}
+        height={borderThickness}
+        fill={theme.rulerBorder}
+      />
+      <rect
+        x={paperLeft}
+        y={paperBottom - borderThickness}
+        width={gridWidth}
+        height={borderThickness}
+        fill={theme.rulerBorder}
+      />
+      <rect
+        x={paperLeft}
+        y={paperTop}
+        width={borderThickness}
+        height={gridHeight}
+        fill={theme.rulerBorder}
+      />
+      <rect
+        x={paperRight - borderThickness}
+        y={paperTop}
+        width={borderThickness}
+        height={gridHeight}
+        fill={theme.rulerBorder}
+      />
+
+      {Array.from({ length: canvas.width }, (_, index) => {
+        const centerX = paperLeft + index * cellWidth + cellWidth / 2;
+        const label = String(index + 1);
+        return (
+          <g key={`tx-${index}`}>
+            <text
+              x={centerX}
+              y={RULER_SIZE / 2}
+              fill={theme.rulerText}
+              fontSize={rulerFontSize}
+              fontFamily="IBM Plex Mono, monospace"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              lengthAdjust="spacingAndGlyphs"
+            >
+              {label}
+            </text>
+            <text
+              x={centerX}
+              y={paperBottom + RULER_SIZE / 2}
+              fill={theme.rulerText}
+              fontSize={rulerFontSize}
+              fontFamily="IBM Plex Mono, monospace"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              lengthAdjust="spacingAndGlyphs"
+            >
+              {label}
+            </text>
+          </g>
+        );
+      })}
+
+      {Array.from({ length: canvas.height }, (_, index) => {
+        const centerY = paperTop + index * cellHeight + cellHeight / 2;
+        const label = String(index + 1);
+        return (
+          <g key={`ty-${index}`}>
+            <text
+              x={RULER_SIZE / 2}
+              y={centerY}
+              fill={theme.rulerText}
+              fontSize={rulerFontSize}
+              fontFamily="IBM Plex Mono, monospace"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              lengthAdjust="spacingAndGlyphs"
+            >
+              {label}
+            </text>
+            <text
+              x={paperRight + RULER_SIZE / 2}
+              y={centerY}
+              fill={theme.rulerText}
+              fontSize={rulerFontSize}
+              fontFamily="IBM Plex Mono, monospace"
+              textAnchor="middle"
+              dominantBaseline="middle"
+              lengthAdjust="spacingAndGlyphs"
+            >
+              {label}
+            </text>
+          </g>
+        );
+      })}
+    </>
+  );
 }
 
 function isCellInsideSelection(x: number, y: number, selection: RectSelection) {
@@ -915,44 +1107,53 @@ function getShellRelativeMidpoint(
   };
 }
 
-function alignToPixel(value: number) {
-  return Math.round(value) + 0.5;
-}
-
-function readStageTheme(): StageTheme {
-  if (typeof window === "undefined") {
+function resolveStageTheme(themeKey?: string): StageTheme {
+  if (themeKey === "paper") {
     return {
-      frameFill: "#d8c8ae",
-      rulerFill: "#f5f2ec",
-      rulerBorder: "#c8bca7",
-      rulerText: "#5c5045",
+      frameFill: "#cdd9e5",
+      rulerFill: "#f7f9fc",
+      rulerBorder: "#bccada",
+      rulerText: "#465667",
       paperFill: "#ffffff",
-      gridMajor: "#e0a04c",
-      gridMinor: "rgba(126, 119, 110, 0.42)",
-      selectionFill: "rgba(74, 163, 161, 0.18)",
-      selectionStroke: "#2f8f83",
-      hoverPaint: "#2f8f83",
-      hoverErase: "#c94b4b",
-      hoverFill: "#e58a3c",
+      gridMajor: "rgba(74, 131, 194, 0.72)",
+      gridMinor: "rgba(92, 108, 126, 0.3)",
+      selectionFill: "rgba(28, 138, 134, 0.18)",
+      selectionStroke: "#1c8a86",
+      hoverPaint: "#1c8a86",
+      hoverErase: "#c34f4f",
+      hoverFill: "#d28d2d",
     };
   }
 
-  const style = window.getComputedStyle(document.documentElement);
+  if (themeKey === "night") {
+    return {
+      frameFill: "#455264",
+      rulerFill: "#d8e0e8",
+      rulerBorder: "#8d9dad",
+      rulerText: "#253240",
+      paperFill: "#ffffff",
+      gridMajor: "rgba(83, 157, 228, 0.72)",
+      gridMinor: "rgba(107, 123, 140, 0.34)",
+      selectionFill: "rgba(79, 194, 180, 0.18)",
+      selectionStroke: "#4fc2b4",
+      hoverPaint: "#4fc2b4",
+      hoverErase: "#f09a9a",
+      hoverFill: "#dea63f",
+    };
+  }
 
   return {
-    frameFill: style.getPropertyValue("--theme-stage-frame-fill").trim() || "#d8c8ae",
-    rulerFill: style.getPropertyValue("--theme-stage-ruler-fill").trim() || "#f5f2ec",
-    rulerBorder: style.getPropertyValue("--theme-stage-ruler-border").trim() || "#c8bca7",
-    rulerText: style.getPropertyValue("--theme-stage-ruler-text").trim() || "#5c5045",
-    paperFill: style.getPropertyValue("--theme-stage-paper-fill").trim() || "#ffffff",
-    gridMajor: style.getPropertyValue("--theme-stage-grid-major").trim() || "#e0a04c",
-    gridMinor: style.getPropertyValue("--theme-stage-grid-minor").trim() || "rgba(126, 119, 110, 0.42)",
-    selectionFill:
-      style.getPropertyValue("--theme-stage-selection-fill").trim() || "rgba(74, 163, 161, 0.18)",
-    selectionStroke:
-      style.getPropertyValue("--theme-stage-selection-stroke").trim() || "#2f8f83",
-    hoverPaint: style.getPropertyValue("--theme-stage-hover-paint").trim() || "#2f8f83",
-    hoverErase: style.getPropertyValue("--theme-stage-hover-erase").trim() || "#c94b4b",
-    hoverFill: style.getPropertyValue("--theme-stage-hover-fill").trim() || "#e58a3c",
+    frameFill: "#d8c8ae",
+    rulerFill: "#f5f2ec",
+    rulerBorder: "#c8bca7",
+    rulerText: "#5c5045",
+    paperFill: "#ffffff",
+    gridMajor: "rgba(216, 148, 66, 0.78)",
+    gridMinor: "rgba(92, 80, 67, 0.38)",
+    selectionFill: "rgba(74, 163, 161, 0.18)",
+    selectionStroke: "#2f8f83",
+    hoverPaint: "#2f8f83",
+    hoverErase: "#c94b4b",
+    hoverFill: "#e58a3c",
   };
 }

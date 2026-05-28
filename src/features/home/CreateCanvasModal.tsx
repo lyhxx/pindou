@@ -8,14 +8,14 @@ type CreateCanvasModalProps = {
 };
 
 const presets = [
-  { label: "练习", width: 48, height: 48, note: "适合小图和试色" },
-  { label: "常用", width: 96, height: 96, note: "大多数图片都够用" },
-  { label: "创作", width: 160, height: 120, note: "适合较复杂画面" },
+  { label: "练手", width: 32, height: 32, note: "适合小图和快速试做" },
+  { label: "常用", width: 48, height: 48, note: "适合大多数常见拼豆图" },
+  { label: "进阶", width: 64, height: 64, note: "细节更多，适合完整图案" },
 ];
 
 export function CreateCanvasModal({ open, onClose, onCreate }: CreateCanvasModalProps) {
-  const [width, setWidth] = useState("96");
-  const [height, setHeight] = useState("96");
+  const [width, setWidth] = useState("48");
+  const [height, setHeight] = useState("48");
   const [selectedPreset, setSelectedPreset] = useState<string>("常用");
 
   useEffect(() => {
@@ -81,7 +81,7 @@ export function CreateCanvasModal({ open, onClose, onCreate }: CreateCanvasModal
         <header className="modal-sheet__header">
           <div>
             <p className="modal-sheet__eyebrow">新建画布</p>
-            <h2 className="modal-sheet__title">先确定画布，再进入工作台。</h2>
+            <h2 className="modal-sheet__title">先确定画布尺寸，再进入工作台</h2>
           </div>
           <Button onClick={onClose} size="compact">
             关闭
@@ -174,7 +174,7 @@ export function CreateCanvasModal({ open, onClose, onCreate }: CreateCanvasModal
         </div>
 
         <footer className="modal-sheet__footer">
-          <span className="modal-sheet__tip">创建后可继续上传图片并自动转图纸。</span>
+          <span className="modal-sheet__tip">创建后可继续上传图片并生成拼豆图纸。</span>
           <div className="inline-actions">
             <Button onClick={onClose}>取消</Button>
             <Button disabled={!canCreate} onClick={handleCreate} variant="primary">

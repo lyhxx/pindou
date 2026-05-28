@@ -2,10 +2,6 @@ export type EditorHelpArticleId =
   | "workspace-overview"
   | "canvas-size"
   | "image-position"
-  | "image-dithering"
-  | "remove-background"
-  | "background-tolerance"
-  | "edge-cleanup"
   | "advanced-palette"
   | "edit-tools"
   | "shortcuts"
@@ -112,87 +108,6 @@ export const editorHelpArticles: EditorHelpArticle[] = [
     ],
   },
   {
-    id: "image-dithering",
-    groupId: "image",
-    title: "抖动",
-    summary: "开启后会用误差扩散保留渐变层次，但颗粒感会更强。",
-    keywords: ["抖动", "误差扩散", "渐变", "颗粒", "量化", "floyd"],
-    sections: [
-      {
-        title: "适用场景",
-        items: [
-          "适合彩色过渡较多、原图渐变明显的照片素材。",
-          "适合想保留明暗层次，但能接受边缘颗粒感更强的情况。",
-          "如果希望边界更干净、色块更整齐，通常建议关闭抖动。",
-        ],
-      },
-    ],
-  },
-  {
-    id: "remove-background",
-    groupId: "image",
-    title: "自动去背景",
-    summary: "系统会从四边连通区域估算背景，去掉接近背景色的区域，适合主体清晰的图片。",
-    keywords: ["去背景", "背景", "抠图", "四边", "连通区域", "主体"],
-    sections: [
-      {
-        title: "工作方式",
-        paragraphs: [
-          "当前算法会从图片边缘向内识别与背景接近的连通区域，而不是只看四角单点颜色。",
-          "这种方式更适合证件照、商品图、纯底插画这类背景较单一的图片。",
-        ],
-      },
-      {
-        title: "注意事项",
-        items: [
-          "如果主体边缘颜色和背景太接近，去背景时仍可能连带削掉一部分边缘。",
-          "背景复杂、阴影很重或主体贴边过多的图片，建议结合容差反复预览。",
-        ],
-      },
-    ],
-  },
-  {
-    id: "background-tolerance",
-    groupId: "image",
-    title: "背景容差",
-    summary: "数值越大，越容易把接近背景色的边缘一起去掉。",
-    keywords: ["容差", "背景容差", "边缘", "去背景", "误删"],
-    sections: [
-      {
-        title: "调节建议",
-        items: [
-          "容差低时会保留更多边缘细节，但背景可能去不干净。",
-          "容差高时背景去得更彻底，但主体边缘也更容易被吃掉。",
-          "建议从低值开始慢慢调，边看预览边判断是否继续增大。",
-        ],
-      },
-    ],
-  },
-  {
-    id: "edge-cleanup",
-    groupId: "image",
-    title: "边缘杂色清理",
-    summary: "生成图纸后自动处理描边附近的孤立杂色点，减少边缘颜色不一致。",
-    keywords: ["边缘", "描边", "杂色", "清理", "颜色不一致", "替换"],
-    sections: [
-      {
-        title: "作用方式",
-        paragraphs: [
-          "开启后，系统会在图纸生成后继续检查边缘和小面积孤立色块。",
-          "如果某个格子明显是被周围主色包围的跳色点，就会优先并入周边主色，用来减少描边断裂和轮廓发花。",
-        ],
-      },
-      {
-        title: "适用场景",
-        items: [
-          "原图描边有轻微压缩噪点或抗锯齿杂色。",
-          "人物、卡通、图标这类轮廓清晰的图片。",
-          "希望先自动清一轮边缘，再做少量手工修图。",
-        ],
-      },
-    ],
-  },
-  {
     id: "advanced-palette",
     groupId: "colors",
     title: "高级颜色与全启用 / 全禁用",
@@ -289,7 +204,6 @@ export const editorHelpArticles: EditorHelpArticle[] = [
         items: [
           "裁切空白：裁掉四周没有用到的空白格，让画布边界贴近图案本体。",
           "留白 4 格：在图案四周补出 4 格空白边距。",
-          "居中内容：把当前图案整体移动到画布中心。",
         ],
       },
     ],
@@ -341,10 +255,6 @@ export const editorHelpLinks = {
   topbar: "workspace-overview",
   canvasSize: "canvas-size",
   imagePosition: "image-position",
-  dithering: "image-dithering",
-  removeBackground: "remove-background",
-  tolerance: "background-tolerance",
-  edgeCleanup: "edge-cleanup",
   advancedPalette: "advanced-palette",
   toolbar: "edit-tools",
   shortcuts: "shortcuts",

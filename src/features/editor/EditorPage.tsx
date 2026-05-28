@@ -43,17 +43,28 @@ const LATEST_UPDATE_NOTICE = {
   id: `${APP_VERSION}-latest`,
   label: "有更新",
   title: "最新更新",
-  summary: "图片处理和画布缩放链路已补强，建议看一下本次变更。",
+  summary: "中间画布标尺、网格清晰度和主题同步已完成新一轮修正。",
   items: [
-    "去背景升级为按四边连通区域识别，减少误删主体。",
-    "高级颜色支持“仅替换边缘”，可快速清理描边杂色。",
-    "中间画布滚轮缩放的 passive 报错已修复。",
+    "中间画布改为 canvas 与 SVG 分层渲染，放大后坐标和网格更清楚。",
+    "低格数画布下的四边坐标区已加宽，数字显示更稳定。",
+    "主题切换时画布标尺区域的颜色同步延迟问题已修正。",
   ],
 } as const;
 
 export function EditorPage({ onBackHome }: EditorPageProps) {
   const { themeId, setThemeId, themeOptions } = useTheme();
   const importInputRef = useRef<HTMLInputElement | null>(null);
+  const imageNudgeHoldRef = useRef<{
+    pointerId: number | null;
+    repeatTimeoutId: number | null;
+    repeatIntervalId: number | null;
+    suppressClick: boolean;
+  }>({
+    pointerId: null,
+    repeatTimeoutId: null,
+    repeatIntervalId: null,
+    suppressClick: false,
+  });
   const [replaceFromColorId, setReplaceFromColorId] = useState<string>(defaultPalette[0].id);
   const [replaceToColorId, setReplaceToColorId] = useState<string>(defaultPalette[2].id);
   const [replaceSelectionSlot, setReplaceSelectionSlot] = useState<"from" | "to" | null>(null);
@@ -93,9 +104,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const resetImageTransform = useEditorStore((state) => state.resetImageTransform);
   const setStageViewport = useEditorStore((state) => state.setStageViewport);
   const resetStageViewport = useEditorStore((state) => state.resetStageViewport);
-  const setDithering = useEditorStore((state) => state.setDithering);
-  const setRemoveBackground = useEditorStore((state) => state.setRemoveBackground);
-  const setTolerance = useEditorStore((state) => state.setTolerance);
   const setTool = useEditorStore((state) => state.setTool);
   const setShowGrid = useEditorStore((state) => state.setShowGrid);
   const setActiveColorId = useEditorStore((state) => state.setActiveColorId);
@@ -108,7 +116,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
   const generatePattern = useEditorStore((state) => state.generatePattern);
   const trimToDrawing = useEditorStore((state) => state.trimToDrawing);
   const wrapDrawingWithPadding = useEditorStore((state) => state.wrapDrawingWithPadding);
-  const centerDrawing = useEditorStore((state) => state.centerDrawing);
   const paintCell = useEditorStore((state) => state.paintCell);
   const eraseCell = useEditorStore((state) => state.eraseCell);
   const fillArea = useEditorStore((state) => state.fillArea);
@@ -135,6 +142,19 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       document.body.classList.remove("app-editor-active");
     };
   }, []);
+
+  useEffect(
+    () => () => {
+      const holdState = imageNudgeHoldRef.current;
+      if (holdState.repeatTimeoutId !== null) {
+        window.clearTimeout(holdState.repeatTimeoutId);
+      }
+      if (holdState.repeatIntervalId !== null) {
+        window.clearInterval(holdState.repeatIntervalId);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     function preventBrowserZoom(event: WheelEvent) {
@@ -177,9 +197,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
       canvas,
       sourceImage,
       imageTransform,
-      dithering: processing.dithering,
-      removeBackground: processing.removeBackground,
-      tolerance: processing.tolerance,
       enabledPaletteIds,
     })
       .then((grid) => {
@@ -200,9 +217,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     canvas,
     enabledPaletteIds,
     imageTransform,
-    processing.dithering,
-    processing.removeBackground,
-    processing.tolerance,
     sourceImage,
     livePreviewEnabled,
   ]);
@@ -445,6 +459,70 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     setCreateCanvasOpen(false);
   }
 
+  function stopImageNudgeRepeat() {
+    const holdState = imageNudgeHoldRef.current;
+
+    if (holdState.repeatTimeoutId !== null) {
+      window.clearTimeout(holdState.repeatTimeoutId);
+      holdState.repeatTimeoutId = null;
+    }
+
+    if (holdState.repeatIntervalId !== null) {
+      window.clearInterval(holdState.repeatIntervalId);
+      holdState.repeatIntervalId = null;
+    }
+
+    holdState.pointerId = null;
+  }
+
+  function handleImageNudgePointerDown(
+    event: React.PointerEvent<HTMLButtonElement>,
+    deltaX: number,
+    deltaY: number,
+  ) {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    const holdState = imageNudgeHoldRef.current;
+    stopImageNudgeRepeat();
+    holdState.suppressClick = false;
+    holdState.pointerId = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    holdState.repeatTimeoutId = window.setTimeout(() => {
+      nudgeImageTransform(deltaX, deltaY);
+      holdState.suppressClick = true;
+      holdState.repeatIntervalId = window.setInterval(() => {
+        nudgeImageTransform(deltaX, deltaY);
+      }, 90);
+    }, 260);
+  }
+
+  function handleImageNudgePointerUp(event: React.PointerEvent<HTMLButtonElement>) {
+    const holdState = imageNudgeHoldRef.current;
+
+    if (holdState.pointerId !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    stopImageNudgeRepeat();
+  }
+
+  function handleImageNudgeClick(deltaX: number, deltaY: number) {
+    const holdState = imageNudgeHoldRef.current;
+
+    if (holdState.suppressClick) {
+      holdState.suppressClick = false;
+      return;
+    }
+
+    nudgeImageTransform(deltaX, deltaY);
+  }
+
   function openHelpArticle(articleId: EditorHelpArticleId) {
     setHelpCenterArticleId(articleId);
     setHelpCenterOpen(true);
@@ -454,7 +532,13 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
     <div className="app-shell app-shell--editor">
       <header className="topbar topbar--editor">
         <div className="topbar__group">
-          <Button className="topbar__back" onClick={onBackHome} size="compact" tone="editor">
+          <Button
+            className="topbar__action topbar__action--back"
+            onClick={onBackHome}
+            size="compact"
+            tone="editor"
+            variant="ghost"
+          >
             返回首页
           </Button>
           <span className="topbar__meta topbar__meta--editor">{saveLabel}</span>
@@ -469,21 +553,38 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             type="button"
           >
             <BrandMark alt="" className="topbar__project-logo" />
-            <span className={`topbar__project-link-main-badge${
-              hasUnreadUpdateNotice
-                ? " topbar__project-link-main-badge--warning"
-                : " topbar__project-link-main-badge--success"
-            }`}>{`拼豆工坊 v${APP_VERSION}`}</span>
-            <span className="topbar__project-link-badge">反馈</span>
+            <span className="topbar__project-summary">
+              <span
+                className={`topbar__project-state-dot${
+                  hasUnreadUpdateNotice
+                    ? " topbar__project-state-dot--warning"
+                    : " topbar__project-state-dot--success"
+                }`}
+              />
+              <span className="topbar__project-name">{`拼豆工坊 v${APP_VERSION}`}</span>
+            </span>
+            <span className="topbar__project-feedback">反馈</span>
           </button>
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
           <ThemeDropdown onChange={setThemeId} options={themeOptions} themeId={themeId} />
-          <Button onClick={() => openHelpArticle(editorHelpLinks.topbar)} size="compact" tone="editor">
+          <Button
+            className="topbar__action"
+            onClick={() => openHelpArticle(editorHelpLinks.topbar)}
+            size="compact"
+            tone="editor"
+            variant="ghost"
+          >
             帮助中心
           </Button>
-          <Button onClick={handleCreateCanvasRequest} size="compact" tone="editor" variant="primary">
+          <Button
+            className="topbar__action topbar__action--primary"
+            onClick={handleCreateCanvasRequest}
+            size="compact"
+            tone="editor"
+            variant="primary"
+          >
             新建
           </Button>
         </div>
@@ -493,7 +594,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         <aside className="editor-sidebar">
           <div className="editor-panel-group">
             <PanelCard
-              eyebrow="Step 1"
               title="画布"
               titleAction={<HelpHint articleId={editorHelpLinks.canvasSize} onOpenArticle={openHelpArticle} />}
               tone="editor"
@@ -543,7 +643,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
             </PanelCard>
 
             <PanelCard
-              eyebrow="Step 2"
               title="图片与生成"
               titleAction={<HelpHint articleId={editorHelpLinks.imagePosition} onOpenArticle={openHelpArticle} />}
               tone="editor"
@@ -604,65 +703,48 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                   </Button>
                 </div>
                 <div className="inline-actions inline-actions--tight image-controls__nudge">
-                  <Button onClick={() => nudgeImageTransform(0, -2)} size="compact" tone="editor">
+                  <Button
+                    onClick={() => handleImageNudgeClick(0, -1)}
+                    onPointerCancel={handleImageNudgePointerUp}
+                    onPointerDown={(event) => handleImageNudgePointerDown(event, 0, -1)}
+                    onPointerUp={handleImageNudgePointerUp}
+                    size="compact"
+                    tone="editor"
+                  >
                     上
                   </Button>
-                  <Button onClick={() => nudgeImageTransform(0, 2)} size="compact" tone="editor">
+                  <Button
+                    onClick={() => handleImageNudgeClick(0, 1)}
+                    onPointerCancel={handleImageNudgePointerUp}
+                    onPointerDown={(event) => handleImageNudgePointerDown(event, 0, 1)}
+                    onPointerUp={handleImageNudgePointerUp}
+                    size="compact"
+                    tone="editor"
+                  >
                     下
                   </Button>
-                  <Button onClick={() => nudgeImageTransform(-2, 0)} size="compact" tone="editor">
+                  <Button
+                    onClick={() => handleImageNudgeClick(-1, 0)}
+                    onPointerCancel={handleImageNudgePointerUp}
+                    onPointerDown={(event) => handleImageNudgePointerDown(event, -1, 0)}
+                    onPointerUp={handleImageNudgePointerUp}
+                    size="compact"
+                    tone="editor"
+                  >
                     左
                   </Button>
-                  <Button onClick={() => nudgeImageTransform(2, 0)} size="compact" tone="editor">
+                  <Button
+                    onClick={() => handleImageNudgeClick(1, 0)}
+                    onPointerCancel={handleImageNudgePointerUp}
+                    onPointerDown={(event) => handleImageNudgePointerDown(event, 1, 0)}
+                    onPointerUp={handleImageNudgePointerUp}
+                    size="compact"
+                    tone="editor"
+                  >
                     右
                   </Button>
                 </div>
               </div>
-              <div className="control-grid control-grid--double">
-                <label className="field">
-                  <span>抖动</span>
-                  <select
-                    className="field__input"
-                    onChange={(event) =>
-                      setDithering(event.target.value as "none" | "floyd-steinberg")
-                    }
-                    value={processing.dithering}
-                  >
-                    <option value="none">关闭</option>
-                    <option value="floyd-steinberg">开启</option>
-                  </select>
-                </label>
-
-                <label className="field">
-                  <span>去背景</span>
-                  <label className="toggle-row">
-                    <input
-                      checked={processing.removeBackground}
-                      onChange={(event) => setRemoveBackground(event.target.checked)}
-                      type="checkbox"
-                    />
-                    <span>{processing.removeBackground ? "已开启" : "已关闭"}</span>
-                  </label>
-                </label>
-              </div>
-
-              <label
-                className={`field${processing.removeBackground ? "" : " field--disabled"}`}
-              >
-                <span>背景容差 {processing.tolerance}</span>
-                <input
-                  className="field__range"
-                  disabled={!processing.removeBackground}
-                  max={100}
-                  min={0}
-                  onChange={(event) => setTolerance(Number(event.target.value))}
-                  type="range"
-                  value={processing.tolerance}
-                />
-              </label>
-              <p className="muted-copy muted-copy--compact">
-                去背景会优先清掉与四边连通的背景区域，比只按角点取色更稳。
-              </p>
             </PanelCard>
 
           </div>
@@ -775,15 +857,6 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                     tone="editor"
                   >
                     留白 4 格
-                  </Button>
-                  <Button
-                    className="stage-tool-button"
-                    disabled={!beadGrid}
-                    onClick={centerDrawing}
-                    size="compact"
-                    tone="editor"
-                  >
-                    居中内容
                   </Button>
                 </div>
                 <button
@@ -937,18 +1010,19 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
           </div>
 
           <footer className="stage-statusbar">
-            <span>{`画布 ${canvas.width} x ${canvas.height}`}</span>
-            <span>{`视图 ${stageViewport.scale.toFixed(2)}x`}</span>
-	            <span>{`已用 ${usedColorCount} 色`}</span>
-            {selectionInfo ? <span>{`选区 ${selectionInfo.width} x ${selectionInfo.height}`}</span> : null}
-	            <span className="stage-statusbar__hint">平板支持双指缩放/平移，也可切换到“移动画布”。</span>
+            <span className="stage-statusbar__item">{`画布 ${canvas.width} x ${canvas.height}`}</span>
+            <span className="stage-statusbar__item">{`视图 ${stageViewport.scale.toFixed(2)}x`}</span>
+            <span className="stage-statusbar__item">{`已用 ${usedColorCount} 色`}</span>
+            {selectionInfo ? (
+              <span className="stage-statusbar__item">{`选区 ${selectionInfo.width} x ${selectionInfo.height}`}</span>
+            ) : null}
+            <span className="stage-statusbar__hint">平板支持双指缩放/平移，也可切换到“移动画布”。</span>
           </footer>
         </section>
 
         <aside className="editor-sidebar editor-sidebar--right">
           <div className="editor-panel-group">
             <PanelCard
-              eyebrow="调色"
               title="高级颜色"
               titleAction={<HelpHint articleId={editorHelpLinks.advancedPalette} onOpenArticle={openHelpArticle} />}
               tone="editor"
@@ -1100,14 +1174,13 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 </Button>
                 <DisabledHint reason={replaceReason} />
                 <p className="muted-copy muted-copy--compact">
-                  只处理边缘附近和小面积跳色点，不会把整张图里同色区域全部替换掉。
+                  只处理外轮廓 1 到 2 圈范围内的源色，不会把主体内部同色区域一起替掉。
                 </p>
               </div>
             </PanelCard>
 
             <PanelCard
               className="export-panel"
-              eyebrow="Export"
               title="导入导出"
               tone="editor"
               footer={
@@ -1155,7 +1228,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
               </div>
             </PanelCard>
 
-            <PanelCard eyebrow="Colors" title="颜色统计" tone="editor">
+            <PanelCard title="颜色统计" tone="editor">
               <div className="editor-color-tools__head">
                 <strong>已用颜色</strong>
 	                <span>{usedColorCount} 色</span>

@@ -342,9 +342,9 @@
   --theme-gradient-card-active:
     linear-gradient(180deg, rgba(33, 64, 72, 0.98), rgba(28, 55, 63, 0.96));
   --theme-stage-frame-fill: #455264;
-  --theme-stage-ruler-fill: #edf2f7;
-  --theme-stage-ruler-border: #b8c1cb;
-  --theme-stage-ruler-text: #3c4856;
+  --theme-stage-ruler-fill: #d8e0e8;
+  --theme-stage-ruler-border: #8d9dad;
+  --theme-stage-ruler-text: #253240;
   --theme-stage-paper-fill: #ffffff;
   --theme-stage-grid-major: rgba(83, 157, 228, 0.72);
   --theme-stage-grid-minor: rgba(107, 123, 140, 0.34);
