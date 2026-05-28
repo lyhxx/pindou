@@ -2,6 +2,7 @@ import {
   forwardRef,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -26,6 +27,7 @@ type CanvasStageProps = {
   beadGrid: BeadGrid | null;
   canvas: CanvasSize;
   currentSelection: RectSelection | null;
+  themeKey?: string;
   onCellAction: (
     x: number,
     y: number,
@@ -43,6 +45,22 @@ const CANVAS_SIZE = 1600;
 const RULER_SIZE = 30;
 const GRID_MAJOR_STEP = 10;
 const PAPER_PADDING = 0;
+const MAX_DEVICE_PIXEL_RATIO = 3;
+
+type StageTheme = {
+  frameFill: string;
+  rulerFill: string;
+  rulerBorder: string;
+  rulerText: string;
+  paperFill: string;
+  gridMajor: string;
+  gridMinor: string;
+  selectionFill: string;
+  selectionStroke: string;
+  hoverPaint: string;
+  hoverErase: string;
+  hoverFill: string;
+};
 
 export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
   function CanvasStage(
@@ -51,6 +69,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       beadGrid,
       canvas,
       currentSelection,
+      themeKey,
       onCellAction,
       onHoverChange,
       onSelectionChange,
@@ -92,6 +111,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       lastDeltaX: number;
       lastDeltaY: number;
     } | null>(null);
+    const stageTheme = useMemo(() => readStageTheme(), [themeKey]);
 
     useImperativeHandle(
       forwardedRef,
@@ -173,7 +193,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
     useLayoutEffect(() => {
       draw();
-    }, [activeTool, beadGrid, canvas, hoverCell, selectionRect, showGrid, stageViewport]);
+    }, [activeTool, beadGrid, canvas, hoverCell, selectionRect, showGrid, stageTheme, stageViewport]);
 
     useLayoutEffect(() => {
       function handleKeyDown(event: KeyboardEvent) {
@@ -204,10 +224,23 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         return;
       }
 
+      const devicePixelRatio =
+        typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio || 1, MAX_DEVICE_PIXEL_RATIO);
+      const targetWidth = Math.max(1, Math.round(CANVAS_SIZE * devicePixelRatio));
+      const targetHeight = Math.max(1, Math.round(CANVAS_SIZE * devicePixelRatio));
+
+      if (canvasNode.width !== targetWidth || canvasNode.height !== targetHeight) {
+        canvasNode.width = targetWidth;
+        canvasNode.height = targetHeight;
+      }
+
       const context = canvasNode.getContext("2d");
       if (!context) {
         return;
       }
+
+      context.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+      context.imageSmoothingEnabled = false;
 
       const paperLeft = RULER_SIZE;
       const paperTop = RULER_SIZE;
@@ -219,10 +252,19 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       const cellHeight = gridHeight / canvas.height;
 
       context.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-      context.fillStyle = "#d8c8ae";
+      context.fillStyle = stageTheme.frameFill;
       context.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
-      drawRulers(context, cellWidth, cellHeight, paperLeft, paperTop, gridWidth, gridHeight);
+      drawRulers(
+        context,
+        cellWidth,
+        cellHeight,
+        paperLeft,
+        paperTop,
+        gridWidth,
+        gridHeight,
+        stageTheme,
+      );
       drawPaper(context, paperLeft, paperTop, paperRight - paperLeft, paperBottom - paperTop);
       drawGridFill(context, beadGrid, cellWidth, cellHeight, paperLeft, paperTop);
 
@@ -242,11 +284,12 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       paperTop: number,
       gridWidth: number,
       gridHeight: number,
+      theme: StageTheme,
     ) {
       const paperRight = paperLeft + gridWidth;
       const paperBottom = paperTop + gridHeight;
 
-      context.fillStyle = "#f5f2ec";
+      context.fillStyle = theme.rulerFill;
       context.fillRect(paperLeft, 0, gridWidth, RULER_SIZE);
       context.fillRect(paperLeft, paperBottom, gridWidth, RULER_SIZE);
       context.fillRect(0, paperTop, RULER_SIZE, gridHeight);
@@ -256,11 +299,11 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       context.fillRect(0, paperBottom, RULER_SIZE, RULER_SIZE);
       context.fillRect(paperRight, paperBottom, RULER_SIZE, RULER_SIZE);
 
-      context.strokeStyle = "#c8bca7";
+      context.strokeStyle = theme.rulerBorder;
       context.lineWidth = 1;
       context.strokeRect(paperLeft, paperTop, gridWidth, gridHeight);
 
-      context.fillStyle = "#5c5045";
+      context.fillStyle = theme.rulerText;
       context.font = "11px IBM Plex Mono, monospace";
       context.textAlign = "center";
       context.textBaseline = "middle";
@@ -287,7 +330,7 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       width: number,
       height: number,
     ) {
-      context.fillStyle = "#ffffff";
+      context.fillStyle = stageTheme.paperFill;
       context.fillRect(left, top, width, height);
     }
 
@@ -335,20 +378,20 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       context.lineWidth = 1;
 
       for (let x = 0; x <= canvas.width; x += 1) {
-        context.strokeStyle =
-          x % GRID_MAJOR_STEP === 0 ? "#e0a04c" : "rgba(126, 119, 110, 0.42)";
+        context.strokeStyle = x % GRID_MAJOR_STEP === 0 ? stageTheme.gridMajor : stageTheme.gridMinor;
         context.beginPath();
-        context.moveTo(paperLeft + x * cellWidth, paperTop);
-        context.lineTo(paperLeft + x * cellWidth, paperTop + gridHeight);
+        const lineX = alignToPixel(paperLeft + x * cellWidth);
+        context.moveTo(lineX, paperTop);
+        context.lineTo(lineX, paperTop + gridHeight);
         context.stroke();
       }
 
       for (let y = 0; y <= canvas.height; y += 1) {
-        context.strokeStyle =
-          y % GRID_MAJOR_STEP === 0 ? "#e0a04c" : "rgba(126, 119, 110, 0.42)";
+        context.strokeStyle = y % GRID_MAJOR_STEP === 0 ? stageTheme.gridMajor : stageTheme.gridMinor;
         context.beginPath();
-        context.moveTo(paperLeft, paperTop + y * cellHeight);
-        context.lineTo(paperLeft + gridWidth, paperTop + y * cellHeight);
+        const lineY = alignToPixel(paperTop + y * cellHeight);
+        context.moveTo(paperLeft, lineY);
+        context.lineTo(paperLeft + gridWidth, lineY);
         context.stroke();
       }
 
@@ -373,8 +416,8 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
       const bottom = Math.max(selection.startY, selection.endY);
 
       context.save();
-      context.fillStyle = "rgba(74, 163, 161, 0.18)";
-      context.strokeStyle = "#2f8f83";
+      context.fillStyle = stageTheme.selectionFill;
+      context.strokeStyle = stageTheme.selectionStroke;
       context.lineWidth = 2;
       context.fillRect(
         paperLeft + left * cellWidth,
@@ -405,7 +448,11 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
 
       context.save();
       context.strokeStyle =
-        activeTool === "erase" ? "#c94b4b" : activeTool === "fill" ? "#e58a3c" : "#2f8f83";
+        activeTool === "erase"
+          ? stageTheme.hoverErase
+          : activeTool === "fill"
+            ? stageTheme.hoverFill
+            : stageTheme.hoverPaint;
       context.lineWidth = 2;
       context.strokeRect(
         paperLeft + cell.x * cellWidth + 1,
@@ -734,8 +781,6 @@ export const CanvasStage = forwardRef<HTMLCanvasElement, CanvasStageProps>(
         <canvas
           ref={canvasRef}
           className="canvas-stage"
-          width={CANVAS_SIZE}
-          height={CANVAS_SIZE}
           style={{
             width: `${displaySize.width}px`,
             height: `${displaySize.height}px`,
@@ -867,5 +912,47 @@ function getShellRelativeMidpoint(
   return {
     x: (first.x + second.x) / 2 - rect.left - rect.width / 2,
     y: (first.y + second.y) / 2 - rect.top - rect.height / 2,
+  };
+}
+
+function alignToPixel(value: number) {
+  return Math.round(value) + 0.5;
+}
+
+function readStageTheme(): StageTheme {
+  if (typeof window === "undefined") {
+    return {
+      frameFill: "#d8c8ae",
+      rulerFill: "#f5f2ec",
+      rulerBorder: "#c8bca7",
+      rulerText: "#5c5045",
+      paperFill: "#ffffff",
+      gridMajor: "#e0a04c",
+      gridMinor: "rgba(126, 119, 110, 0.42)",
+      selectionFill: "rgba(74, 163, 161, 0.18)",
+      selectionStroke: "#2f8f83",
+      hoverPaint: "#2f8f83",
+      hoverErase: "#c94b4b",
+      hoverFill: "#e58a3c",
+    };
+  }
+
+  const style = window.getComputedStyle(document.documentElement);
+
+  return {
+    frameFill: style.getPropertyValue("--theme-stage-frame-fill").trim() || "#d8c8ae",
+    rulerFill: style.getPropertyValue("--theme-stage-ruler-fill").trim() || "#f5f2ec",
+    rulerBorder: style.getPropertyValue("--theme-stage-ruler-border").trim() || "#c8bca7",
+    rulerText: style.getPropertyValue("--theme-stage-ruler-text").trim() || "#5c5045",
+    paperFill: style.getPropertyValue("--theme-stage-paper-fill").trim() || "#ffffff",
+    gridMajor: style.getPropertyValue("--theme-stage-grid-major").trim() || "#e0a04c",
+    gridMinor: style.getPropertyValue("--theme-stage-grid-minor").trim() || "rgba(126, 119, 110, 0.42)",
+    selectionFill:
+      style.getPropertyValue("--theme-stage-selection-fill").trim() || "rgba(74, 163, 161, 0.18)",
+    selectionStroke:
+      style.getPropertyValue("--theme-stage-selection-stroke").trim() || "#2f8f83",
+    hoverPaint: style.getPropertyValue("--theme-stage-hover-paint").trim() || "#2f8f83",
+    hoverErase: style.getPropertyValue("--theme-stage-hover-erase").trim() || "#c94b4b",
+    hoverFill: style.getPropertyValue("--theme-stage-hover-fill").trim() || "#e58a3c",
   };
 }

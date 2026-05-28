@@ -11,6 +11,7 @@ import { CanvasStage } from "./components/CanvasStage";
 import { ImagePositionPreview } from "./components/ImagePositionPreview";
 import { ImageUploadField } from "./components/ImageUploadField";
 import { useEditorStore } from "./editorStore";
+import { useTheme, type ThemeId } from "../theme/theme";
 import {
   buildHelpSearchText,
   defaultEditorHelpArticleId,
@@ -51,6 +52,7 @@ const LATEST_UPDATE_NOTICE = {
 } as const;
 
 export function EditorPage({ onBackHome }: EditorPageProps) {
+  const { themeId, setThemeId, themeOptions } = useTheme();
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const [replaceFromColorId, setReplaceFromColorId] = useState<string>(defaultPalette[0].id);
   const [replaceToColorId, setReplaceToColorId] = useState<string>(defaultPalette[2].id);
@@ -477,6 +479,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
         </div>
 
         <div className="topbar__actions topbar__actions--editor">
+          <ThemeDropdown onChange={setThemeId} options={themeOptions} themeId={themeId} />
           <Button onClick={() => openHelpArticle(editorHelpLinks.topbar)} size="compact" tone="editor">
             帮助中心
           </Button>
@@ -572,6 +575,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 previewGrid={previewGrid}
                 previewMode={livePreviewEnabled ? "generated" : "source"}
                 sourceImage={sourceImage}
+                themeKey={themeId}
               />
               <div className="editor-touch-note">
                 <strong>{editorUiCopy.touchImageNoteTitle}</strong>
@@ -884,6 +888,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
                 beadGrid={beadGrid}
                 canvas={canvas}
                 currentSelection={currentSelection}
+                themeKey={themeId}
                 onCellAction={(x, y, mode) => {
                   const resolvedMode =
                     mode ??
@@ -1402,6 +1407,7 @@ function ProjectInfoModal({
               ))}
             </ul>
           </div>
+
           <div className="modal-sheet__block">
             <div className="modal-sheet__block-head">
               <strong>查看开源项目</strong>
@@ -1426,6 +1432,99 @@ function ProjectInfoModal({
           </div>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ThemeDropdown({
+  themeId,
+  options,
+  onChange,
+}: {
+  themeId: ThemeId;
+  options: Array<{
+    id: ThemeId;
+    label: string;
+    description: string;
+  }>;
+  onChange: (themeId: ThemeId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const currentOption = options.find((option) => option.id === themeId) ?? options[0];
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target;
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (!rootRef.current?.contains(target)) {
+        setOpen(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    }
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", handlePointerDown);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className={`theme-dropdown${open ? " theme-dropdown--open" : ""}`}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        className="theme-dropdown__trigger"
+        onClick={() => setOpen((value) => !value)}
+        type="button"
+      >
+        <span className={`theme-dropdown__swatch theme-dropdown__swatch--${currentOption.id}`} aria-hidden="true" />
+        <span className="theme-dropdown__label">{currentOption.label}</span>
+        <span className="theme-dropdown__caret" aria-hidden="true">
+          ▾
+        </span>
+      </button>
+
+      {open ? (
+        <div className="theme-dropdown__menu" role="listbox" aria-label="界面主题选择">
+          {options.map((option) => (
+            <button
+              key={option.id}
+              aria-selected={themeId === option.id}
+              className={`theme-dropdown__option${
+                themeId === option.id ? " theme-dropdown__option--active" : ""
+              }`}
+              onClick={() => {
+                onChange(option.id);
+                setOpen(false);
+              }}
+              role="option"
+              type="button"
+            >
+              <span className={`theme-dropdown__swatch theme-dropdown__swatch--${option.id}`} aria-hidden="true" />
+              <span className="theme-dropdown__meta">
+                <strong>{option.label}</strong>
+                <small>{option.description}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

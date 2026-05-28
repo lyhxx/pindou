@@ -26,6 +26,8 @@
   --color-border-default: rgba(38, 34, 28, 0.12);
   --color-border-strong: rgba(38, 34, 28, 0.2);
   --color-border-accent: rgba(232, 93, 63, 0.35);
+  --color-border-warning: rgba(226, 168, 55, 0.26);
+  --color-border-danger: rgba(201, 75, 75, 0.24);
 
   --surface-page: var(--color-bg-page);
   --surface-panel: var(--color-bg-surface);
@@ -45,6 +47,88 @@
   --border-focus: var(--color-border-accent);
   --focus-ring-color: rgba(74, 163, 161, 0.32);
   --focus-ring-shadow: 0 0 0 3px var(--focus-ring-color);
+
+  --theme-bg-page: var(--color-bg-page);
+  --theme-bg-page-top: #f8f3ea;
+  --theme-bg-surface: var(--color-bg-surface);
+  --theme-bg-popup: var(--color-bg-popup);
+  --theme-bg-overlay: rgba(38, 34, 28, 0.28);
+  --theme-bg-switch-off: rgba(122, 108, 91, 0.24);
+  --theme-bg-switch-thumb: #fffaf4;
+  --theme-bg-surface-muted: rgba(255, 255, 255, 0.56);
+  --theme-bg-surface-soft: rgba(255, 255, 255, 0.78);
+  --theme-bg-surface-strong: rgba(255, 255, 255, 0.92);
+  --theme-bg-surface-accent-soft: rgba(232, 93, 63, 0.1);
+  --theme-bg-surface-accent-strong: rgba(232, 93, 63, 0.14);
+  --theme-bg-surface-success-soft: rgba(77, 159, 112, 0.14);
+  --theme-bg-surface-warning-soft: rgba(226, 168, 55, 0.18);
+  --theme-bg-surface-danger-soft: rgba(201, 75, 75, 0.12);
+
+  --theme-text-primary: var(--color-ink-strong);
+  --theme-text-secondary: var(--color-ink-soft);
+  --theme-text-muted: var(--color-ink-muted);
+  --theme-text-on-accent: #fff9f1;
+  --theme-text-warning: #8a640f;
+  --theme-text-success: var(--color-success);
+  --theme-text-danger: var(--color-error);
+
+  --theme-border-soft: var(--color-border-soft);
+  --theme-border-default: var(--color-border-default);
+  --theme-border-strong: var(--color-border-strong);
+  --theme-border-warning: var(--color-border-warning);
+  --theme-border-danger: var(--color-border-danger);
+  --theme-border-accent: var(--color-border-accent);
+
+  --theme-accent-primary: var(--color-accent-primary);
+  --theme-accent-primary-hover: var(--color-accent-primary-hover);
+  --theme-accent-secondary: var(--color-accent-secondary);
+  --theme-accent-highlight: var(--color-accent-highlight);
+
+  --theme-scrollbar-track: rgba(255, 249, 241, 0.72);
+  --theme-scrollbar-thumb: rgba(134, 112, 87, 0.5);
+  --theme-scrollbar-thumb-hover: rgba(134, 112, 87, 0.68);
+
+  --theme-shadow-soft: var(--shadow-xs);
+  --theme-shadow-panel: var(--shadow-sm);
+  --theme-shadow-floating: var(--shadow-lg);
+
+  --theme-gradient-page:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.45), transparent 32%),
+    linear-gradient(180deg, var(--theme-bg-page-top) 0%, var(--theme-bg-page) 100%);
+  --theme-gradient-topbar: rgba(255, 249, 241, 0.88);
+  --theme-gradient-topbar-editor: rgba(255, 252, 247, 0.82);
+  --theme-gradient-panel:
+    linear-gradient(180deg, rgba(255, 253, 248, 0.96), rgba(248, 240, 228, 0.9));
+  --theme-gradient-panel-editor:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.94), rgba(252, 245, 236, 0.9));
+  --theme-gradient-home-hero: rgba(255, 252, 247, 0.84);
+  --theme-gradient-stage-frame: linear-gradient(180deg, #ede2d0, #e3d5c0);
+  --theme-gradient-stage-canvas:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent),
+    #d0bea2;
+  --theme-gradient-popup: rgba(255, 252, 247, 0.98);
+  --theme-gradient-upload:
+    linear-gradient(180deg, rgba(250, 255, 253, 0.96), rgba(239, 249, 246, 0.92));
+  --theme-gradient-preview: linear-gradient(180deg, #efe0c8, #dcc7a8);
+  --theme-gradient-card-soft:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(250, 245, 237, 0.92));
+  --theme-gradient-card-active:
+    linear-gradient(180deg, rgba(241, 252, 250, 0.98), rgba(225, 246, 243, 0.94));
+
+  --theme-stage-frame-fill: #d8c8ae;
+  --theme-stage-ruler-fill: #f5f2ec;
+  --theme-stage-ruler-border: #c8bca7;
+  --theme-stage-ruler-text: #5c5045;
+  --theme-stage-paper-fill: #ffffff;
+  --theme-stage-grid-major: rgba(216, 148, 66, 0.78);
+  --theme-stage-grid-minor: rgba(92, 80, 67, 0.38);
+  --theme-stage-selection-fill: rgba(74, 163, 161, 0.18);
+  --theme-stage-selection-stroke: #2f8f83;
+  --theme-stage-hover-paint: #2f8f83;
+  --theme-stage-hover-erase: #c94b4b;
+  --theme-stage-hover-fill: #e58a3c;
+  --theme-preview-frame-fill: #eadcc7;
+  --theme-preview-outline: rgba(72, 60, 48, 0.82);
 
   --font-brand: "Smiley Sans", "ZCOOL KuaiLe", "Trebuchet MS", sans-serif;
   --font-ui: "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
@@ -120,4 +204,155 @@
   --stage-min-height: 640px;
   --stage-toolbar-height: 40px;
   --statusbar-height: 28px;
+}
+
+:root[data-theme="paper"] {
+  --theme-bg-page: #eef2f5;
+  --theme-bg-page-top: #f8fafc;
+  --theme-bg-surface: #fcfdff;
+  --theme-bg-popup: #ffffff;
+  --theme-bg-overlay: rgba(34, 42, 52, 0.24);
+  --theme-bg-switch-off: rgba(110, 127, 143, 0.26);
+  --theme-bg-switch-thumb: #ffffff;
+  --theme-bg-surface-muted: rgba(247, 249, 252, 0.92);
+  --theme-bg-surface-soft: rgba(255, 255, 255, 0.96);
+  --theme-bg-surface-strong: rgba(255, 255, 255, 0.98);
+  --theme-bg-surface-accent-soft: rgba(38, 126, 204, 0.09);
+  --theme-bg-surface-accent-strong: rgba(38, 126, 204, 0.14);
+  --theme-bg-surface-success-soft: rgba(46, 151, 115, 0.13);
+  --theme-bg-surface-warning-soft: rgba(214, 151, 45, 0.16);
+  --theme-bg-surface-danger-soft: rgba(204, 84, 84, 0.12);
+  --theme-text-primary: #16202a;
+  --theme-text-secondary: #556474;
+  --theme-text-muted: #8190a0;
+  --theme-text-on-accent: #f8fbff;
+  --theme-text-warning: #8d630a;
+  --theme-text-success: #2e9773;
+  --theme-text-danger: #c34f4f;
+  --theme-border-soft: rgba(22, 32, 42, 0.08);
+  --theme-border-default: rgba(22, 32, 42, 0.12);
+  --theme-border-strong: rgba(22, 32, 42, 0.18);
+  --theme-border-warning: rgba(214, 151, 45, 0.24);
+  --theme-border-danger: rgba(204, 84, 84, 0.22);
+  --theme-border-accent: rgba(38, 126, 204, 0.32);
+  --theme-accent-primary: #267ecc;
+  --theme-accent-primary-hover: #1f6db2;
+  --theme-accent-secondary: #1c8a86;
+  --theme-accent-highlight: #d9a63a;
+  --theme-scrollbar-track: rgba(236, 241, 246, 0.9);
+  --theme-scrollbar-thumb: rgba(106, 124, 141, 0.44);
+  --theme-scrollbar-thumb-hover: rgba(106, 124, 141, 0.64);
+  --theme-gradient-page:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.7), transparent 34%),
+    linear-gradient(180deg, var(--theme-bg-page-top) 0%, var(--theme-bg-page) 100%);
+  --theme-gradient-topbar: rgba(255, 255, 255, 0.84);
+  --theme-gradient-topbar-editor: rgba(252, 253, 255, 0.86);
+  --theme-gradient-panel:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 248, 252, 0.94));
+  --theme-gradient-panel-editor:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 253, 0.94));
+  --theme-gradient-home-hero: rgba(255, 255, 255, 0.82);
+  --theme-gradient-stage-frame: linear-gradient(180deg, #dde5ee, #d3dde8);
+  --theme-gradient-stage-canvas:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent),
+    #c7d5e3;
+  --theme-gradient-popup: rgba(255, 255, 255, 0.98);
+  --theme-gradient-upload:
+    linear-gradient(180deg, rgba(248, 254, 255, 0.98), rgba(240, 249, 252, 0.94));
+  --theme-gradient-preview: linear-gradient(180deg, #d9e3ee, #c7d6e5);
+  --theme-gradient-card-soft:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 248, 252, 0.96));
+  --theme-gradient-card-active:
+    linear-gradient(180deg, rgba(242, 249, 255, 0.98), rgba(229, 242, 252, 0.95));
+  --theme-stage-frame-fill: #cdd9e5;
+  --theme-stage-ruler-fill: #f7f9fc;
+  --theme-stage-ruler-border: #bccada;
+  --theme-stage-ruler-text: #465667;
+  --theme-stage-paper-fill: #ffffff;
+  --theme-stage-grid-major: rgba(74, 131, 194, 0.72);
+  --theme-stage-grid-minor: rgba(92, 108, 126, 0.3);
+  --theme-stage-selection-fill: rgba(28, 138, 134, 0.18);
+  --theme-stage-selection-stroke: #1c8a86;
+  --theme-stage-hover-paint: #1c8a86;
+  --theme-stage-hover-erase: #c34f4f;
+  --theme-stage-hover-fill: #d28d2d;
+  --theme-preview-frame-fill: #d3dde7;
+  --theme-preview-outline: rgba(58, 72, 86, 0.72);
+}
+
+:root[data-theme="night"] {
+  --theme-bg-page: #161a20;
+  --theme-bg-page-top: #20262f;
+  --theme-bg-surface: #222932;
+  --theme-bg-popup: #272e38;
+  --theme-bg-overlay: rgba(8, 10, 13, 0.62);
+  --theme-bg-switch-off: rgba(130, 145, 164, 0.28);
+  --theme-bg-switch-thumb: #f3f6fa;
+  --theme-bg-surface-muted: rgba(37, 45, 55, 0.96);
+  --theme-bg-surface-soft: rgba(44, 53, 64, 0.98);
+  --theme-bg-surface-strong: rgba(50, 60, 72, 0.98);
+  --theme-bg-surface-accent-soft: rgba(78, 156, 226, 0.16);
+  --theme-bg-surface-accent-strong: rgba(78, 156, 226, 0.22);
+  --theme-bg-surface-success-soft: rgba(72, 177, 124, 0.18);
+  --theme-bg-surface-warning-soft: rgba(222, 166, 63, 0.18);
+  --theme-bg-surface-danger-soft: rgba(210, 89, 89, 0.18);
+  --theme-text-primary: #eef4fa;
+  --theme-text-secondary: #b1c0cf;
+  --theme-text-muted: #7f90a1;
+  --theme-text-on-accent: #f5f9ff;
+  --theme-text-warning: #f3cf83;
+  --theme-text-success: #7ed0a0;
+  --theme-text-danger: #f09a9a;
+  --theme-border-soft: rgba(238, 244, 250, 0.08);
+  --theme-border-default: rgba(238, 244, 250, 0.12);
+  --theme-border-strong: rgba(238, 244, 250, 0.18);
+  --theme-border-warning: rgba(222, 166, 63, 0.28);
+  --theme-border-danger: rgba(210, 89, 89, 0.28);
+  --theme-border-accent: rgba(78, 156, 226, 0.38);
+  --theme-accent-primary: #4e9ce2;
+  --theme-accent-primary-hover: #6aaef0;
+  --theme-accent-secondary: #4fc2b4;
+  --theme-accent-highlight: #dea63f;
+  --theme-scrollbar-track: rgba(30, 36, 44, 0.96);
+  --theme-scrollbar-thumb: rgba(125, 143, 163, 0.42);
+  --theme-scrollbar-thumb-hover: rgba(151, 170, 191, 0.62);
+  --theme-shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.24);
+  --theme-shadow-panel: 0 10px 24px rgba(0, 0, 0, 0.24);
+  --theme-shadow-floating: 0 24px 54px rgba(0, 0, 0, 0.34);
+  --theme-gradient-page:
+    radial-gradient(circle at top, rgba(78, 156, 226, 0.08), transparent 32%),
+    linear-gradient(180deg, var(--theme-bg-page-top) 0%, var(--theme-bg-page) 100%);
+  --theme-gradient-topbar: rgba(34, 41, 50, 0.9);
+  --theme-gradient-topbar-editor: rgba(37, 45, 55, 0.92);
+  --theme-gradient-panel:
+    linear-gradient(180deg, rgba(39, 47, 58, 0.98), rgba(29, 35, 43, 0.96));
+  --theme-gradient-panel-editor:
+    linear-gradient(180deg, rgba(42, 50, 61, 0.98), rgba(31, 38, 47, 0.96));
+  --theme-gradient-home-hero: rgba(31, 38, 47, 0.88);
+  --theme-gradient-stage-frame: linear-gradient(180deg, #303948, #27303d);
+  --theme-gradient-stage-canvas:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    #3a4655;
+  --theme-gradient-popup: rgba(39, 47, 58, 0.98);
+  --theme-gradient-upload:
+    linear-gradient(180deg, rgba(31, 49, 53, 0.96), rgba(27, 41, 45, 0.94));
+  --theme-gradient-preview: linear-gradient(180deg, #3a4652, #2e3945);
+  --theme-gradient-card-soft:
+    linear-gradient(180deg, rgba(48, 57, 69, 0.98), rgba(37, 45, 55, 0.96));
+  --theme-gradient-card-active:
+    linear-gradient(180deg, rgba(33, 64, 72, 0.98), rgba(28, 55, 63, 0.96));
+  --theme-stage-frame-fill: #455264;
+  --theme-stage-ruler-fill: #edf2f7;
+  --theme-stage-ruler-border: #b8c1cb;
+  --theme-stage-ruler-text: #3c4856;
+  --theme-stage-paper-fill: #ffffff;
+  --theme-stage-grid-major: rgba(83, 157, 228, 0.72);
+  --theme-stage-grid-minor: rgba(107, 123, 140, 0.34);
+  --theme-stage-selection-fill: rgba(79, 194, 180, 0.18);
+  --theme-stage-selection-stroke: #4fc2b4;
+  --theme-stage-hover-paint: #4fc2b4;
+  --theme-stage-hover-erase: #f09a9a;
+  --theme-stage-hover-fill: #dea63f;
+  --theme-preview-frame-fill: #41505f;
+  --theme-preview-outline: rgba(224, 232, 241, 0.7);
 }

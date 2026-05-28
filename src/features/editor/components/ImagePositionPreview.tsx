@@ -15,6 +15,7 @@ type ImagePositionPreviewProps = {
   previewGrid: BeadGrid | null;
   previewMode: "generated" | "source";
   sourceImage: SourceImage | null;
+  themeKey?: string;
 };
 
 const PREVIEW_WIDTH = 520;
@@ -28,6 +29,7 @@ export function ImagePositionPreview({
   previewGrid,
   previewMode,
   sourceImage,
+  themeKey,
 }: ImagePositionPreviewProps) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -72,7 +74,7 @@ export function ImagePositionPreview({
 
   useEffect(() => {
     drawPreview();
-  }, [canvas.height, canvas.width, imageTransform, previewGrid, previewMode]);
+  }, [canvas.height, canvas.width, imageTransform, previewGrid, previewMode, themeKey]);
 
   useEffect(() => {
     const node = wrapperRef.current;
@@ -107,9 +109,10 @@ export function ImagePositionPreview({
     if (!context) {
       return;
     }
+    const theme = readPreviewTheme();
 
     context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
-    context.fillStyle = "#eadcc7";
+    context.fillStyle = theme.frameFill;
     context.fillRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
 
     const stageWidth = PREVIEW_WIDTH - PREVIEW_PADDING * 2;
@@ -130,7 +133,7 @@ export function ImagePositionPreview({
       boardScale,
     };
 
-    context.fillStyle = "#ffffff";
+    context.fillStyle = theme.paperFill;
     context.fillRect(boardLeft, boardTop, boardWidth, boardHeight);
 
     if (previewMode === "generated" && previewGrid) {
@@ -149,7 +152,7 @@ export function ImagePositionPreview({
       context.drawImage(image, drawLeft, drawTop, drawWidth, drawHeight);
       context.restore();
     } else {
-      context.fillStyle = "#a1917d";
+      context.fillStyle = theme.emptyText;
       context.font = '13px "HarmonyOS Sans SC", "Noto Sans SC", sans-serif';
       context.textAlign = "center";
       context.textBaseline = "middle";
@@ -159,7 +162,7 @@ export function ImagePositionPreview({
     for (let x = 0; x <= canvas.width; x += 1) {
       const isMajorLine = x % 10 === 0;
       context.beginPath();
-      context.strokeStyle = isMajorLine ? "rgba(216, 148, 66, 0.78)" : "rgba(92, 80, 67, 0.38)";
+      context.strokeStyle = isMajorLine ? theme.gridMajor : theme.gridMinor;
       context.lineWidth = isMajorLine ? 1.35 : 0.8;
       context.moveTo(boardLeft + x * cellWidth, boardTop);
       context.lineTo(boardLeft + x * cellWidth, boardTop + boardHeight);
@@ -169,14 +172,14 @@ export function ImagePositionPreview({
     for (let y = 0; y <= canvas.height; y += 1) {
       const isMajorLine = y % 10 === 0;
       context.beginPath();
-      context.strokeStyle = isMajorLine ? "rgba(216, 148, 66, 0.78)" : "rgba(92, 80, 67, 0.38)";
+      context.strokeStyle = isMajorLine ? theme.gridMajor : theme.gridMinor;
       context.lineWidth = isMajorLine ? 1.35 : 0.8;
       context.moveTo(boardLeft, boardTop + y * cellHeight);
       context.lineTo(boardLeft + boardWidth, boardTop + y * cellHeight);
       context.stroke();
     }
 
-    context.strokeStyle = "rgba(72, 60, 48, 0.82)";
+    context.strokeStyle = theme.outline;
     context.lineWidth = 1.6;
     context.strokeRect(boardLeft, boardTop, boardWidth, boardHeight);
   }
@@ -366,4 +369,30 @@ function getPointerPair(pointers: Map<number, { x: number; y: number }>) {
 
 function getPointerDistance(first: { x: number; y: number }, second: { x: number; y: number }) {
   return Math.hypot(second.x - first.x, second.y - first.y);
+}
+
+function readPreviewTheme() {
+  if (typeof window === "undefined") {
+    return {
+      frameFill: "#eadcc7",
+      paperFill: "#ffffff",
+      emptyText: "#a1917d",
+      gridMajor: "rgba(216, 148, 66, 0.78)",
+      gridMinor: "rgba(92, 80, 67, 0.38)",
+      outline: "rgba(72, 60, 48, 0.82)",
+    };
+  }
+
+  const style = window.getComputedStyle(document.documentElement);
+
+  return {
+    frameFill: style.getPropertyValue("--theme-preview-frame-fill").trim() || "#eadcc7",
+    paperFill: style.getPropertyValue("--theme-stage-paper-fill").trim() || "#ffffff",
+    emptyText: style.getPropertyValue("--theme-text-muted").trim() || "#a1917d",
+    gridMajor:
+      style.getPropertyValue("--theme-stage-grid-major").trim() || "rgba(216, 148, 66, 0.78)",
+    gridMinor:
+      style.getPropertyValue("--theme-stage-grid-minor").trim() || "rgba(92, 80, 67, 0.38)",
+    outline: style.getPropertyValue("--theme-preview-outline").trim() || "rgba(72, 60, 48, 0.82)",
+  };
 }
