@@ -1,4 +1,5 @@
 ﻿import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "../../components/ui/Button";
 import { BrandMark } from "../../components/ui/BrandMark";
 import { PanelCard } from "../../components/ui/PanelCard";
@@ -43,16 +44,17 @@ const LATEST_UPDATE_NOTICE = {
   id: `${APP_VERSION}-latest`,
   label: "有更新",
   title: "最新更新",
-  summary: "中间画布标尺、网格清晰度和主题同步已完成新一轮修正。",
+  summary: "站点 SEO、品牌图标资源和仓库首页文档已完成一轮统一收口。",
   items: [
-    "中间画布改为 canvas 与 SVG 分层渲染，放大后坐标和网格更清楚。",
-    "低格数画布下的四边坐标区已加宽，数字显示更稳定。",
-    "主题切换时画布标尺区域的颜色同步延迟问题已修正。",
+    "首页 title、description、站点清单和结构化数据已统一更新。",
+    "站点图标资源已统一到 mushroom-logo.svg，并清理未使用的备用图标文件。",
+    "README、更新日志和开发 skill 已同步到当前版本。",
   ],
 } as const;
 
 export function EditorPage({ onBackHome }: EditorPageProps) {
   const { themeId, setThemeId, themeOptions } = useTheme();
+  const isChildrensDay = themeId === "childrens-day";
   const importInputRef = useRef<HTMLInputElement | null>(null);
   const imageNudgeHoldRef = useRef<{
     pointerId: number | null;
@@ -530,6 +532,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
 
   return (
     <div className="app-shell app-shell--editor">
+      <h1 className="sr-only">拼豆工坊工作台 - 图片转拼豆图纸编辑器</h1>
       <header className="topbar topbar--editor">
         <div className="topbar__group">
           <Button
@@ -554,6 +557,7 @@ export function EditorPage({ onBackHome }: EditorPageProps) {
           >
             <BrandMark alt="" className="topbar__project-logo" />
             <span className="topbar__project-summary">
+              {isChildrensDay ? <span className="topbar__project-ribbon">61</span> : null}
               <span
                 className={`topbar__project-state-dot${
                   hasUnreadUpdateNotice
@@ -1470,7 +1474,7 @@ function ProjectInfoModal({
 
         <div className="modal-sheet__body">
           <div className={`modal-sheet__block modal-sheet__block--update${latestUpdateRead ? "" : " modal-sheet__block--update-unread"}`}>
-            <div className="modal-sheet__block-head">
+            <div className="modal-sheet__block-head modal-sheet__block-head--stacked">
               <strong>{latestUpdateNotice.title}</strong>
               <span>{latestUpdateNotice.summary}</span>
             </div>
@@ -1523,8 +1527,24 @@ function ThemeDropdown({
   onChange: (themeId: ThemeId) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [menuStyle, setMenuStyle] = useState<{ top: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const currentOption = options.find((option) => option.id === themeId) ?? options[0];
+
+  function syncMenuPosition() {
+    const rootNode = rootRef.current;
+    if (!rootNode) {
+      return;
+    }
+
+    const rect = rootNode.getBoundingClientRect();
+    const width = Math.max(rect.width, 240);
+    setMenuStyle({
+      top: rect.bottom + 8,
+      left: Math.max(12, rect.right - width),
+      width,
+    });
+  }
 
   useEffect(() => {
     if (!open) {
@@ -1537,7 +1557,10 @@ function ThemeDropdown({
         return;
       }
 
-      if (!rootRef.current?.contains(target)) {
+      if (
+        !rootRef.current?.contains(target) &&
+        !(target instanceof Element && target.closest(".theme-dropdown__menu--portal"))
+      ) {
         setOpen(false);
       }
     }
@@ -1548,12 +1571,17 @@ function ThemeDropdown({
       }
     }
 
+    syncMenuPosition();
     window.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("resize", syncMenuPosition);
+    window.addEventListener("scroll", syncMenuPosition, true);
 
     return () => {
       window.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("resize", syncMenuPosition);
+      window.removeEventListener("scroll", syncMenuPosition, true);
     };
   }, [open]);
 
@@ -1573,31 +1601,43 @@ function ThemeDropdown({
         </span>
       </button>
 
-      {open ? (
-        <div className="theme-dropdown__menu" role="listbox" aria-label="界面主题选择">
-          {options.map((option) => (
-            <button
-              key={option.id}
-              aria-selected={themeId === option.id}
-              className={`theme-dropdown__option${
-                themeId === option.id ? " theme-dropdown__option--active" : ""
-              }`}
-              onClick={() => {
-                onChange(option.id);
-                setOpen(false);
+      {open && menuStyle
+        ? createPortal(
+            <div
+              className="theme-dropdown__menu theme-dropdown__menu--portal"
+              role="listbox"
+              aria-label="界面主题选择"
+              style={{
+                top: `${menuStyle.top}px`,
+                left: `${menuStyle.left}px`,
+                width: `${menuStyle.width}px`,
               }}
-              role="option"
-              type="button"
             >
-              <span className={`theme-dropdown__swatch theme-dropdown__swatch--${option.id}`} aria-hidden="true" />
-              <span className="theme-dropdown__meta">
-                <strong>{option.label}</strong>
-                <small>{option.description}</small>
-              </span>
-            </button>
-          ))}
-        </div>
-      ) : null}
+              {options.map((option) => (
+                <button
+                  key={option.id}
+                  aria-selected={themeId === option.id}
+                  className={`theme-dropdown__option${
+                    themeId === option.id ? " theme-dropdown__option--active" : ""
+                  }`}
+                  onClick={() => {
+                    onChange(option.id);
+                    setOpen(false);
+                  }}
+                  role="option"
+                  type="button"
+                >
+                  <span className={`theme-dropdown__swatch theme-dropdown__swatch--${option.id}`} aria-hidden="true" />
+                  <span className="theme-dropdown__meta">
+                    <strong>{option.label}</strong>
+                    <small>{option.description}</small>
+                  </span>
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

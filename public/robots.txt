@@ -1,4 +1,10 @@
 User-agent: *
 Allow: /
 
+User-agent: Bingbot
+Allow: /
+
+User-agent: MicrosoftPreview
+Allow: /
+
 Sitemap: https://pindou.javai.cn/sitemap.xml

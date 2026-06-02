@@ -80,6 +80,18 @@ textarea:focus-visible {
   box-shadow: var(--focus-ring-shadow);
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 #root {
   height: 100%;
   min-height: 100%;
@@ -117,6 +129,26 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
+:root[data-theme="atelier"] .topbar--editor {
+  background:
+    radial-gradient(circle at 14% 50%, var(--theme-ornament-tertiary), transparent 16%),
+    var(--theme-gradient-topbar-editor);
+}
+
+:root[data-theme="paper"] .topbar--editor {
+  background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.05) 0 1px, transparent 1px),
+    var(--theme-gradient-topbar-editor);
+  background-size: 24px 100%, auto;
+}
+
+:root[data-theme="night"] .topbar--editor {
+  background:
+    radial-gradient(circle at 16% 50%, rgba(78, 156, 226, 0.14), transparent 14%),
+    radial-gradient(circle at 84% 50%, rgba(79, 194, 180, 0.12), transparent 14%),
+    var(--theme-gradient-topbar-editor);
+}
+
 .topbar--home {
   grid-template-columns: 1fr auto;
 }
@@ -136,14 +168,14 @@ textarea:focus-visible {
 
 .topbar__actions--editor {
   position: relative;
-  z-index: 2;
+  z-index: 130;
   justify-content: flex-end;
 }
 
 .theme-dropdown {
   position: relative;
   flex: 0 0 auto;
-  z-index: 50;
+  z-index: 120;
 }
 
 .theme-dropdown__trigger {
@@ -163,10 +195,27 @@ textarea:focus-visible {
     transform var(--motion-base) var(--ease-soft);
 }
 
+:root[data-theme="childrens-day"] .theme-dropdown__trigger {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 233, 0.9));
+  box-shadow: 0 6px 12px rgba(214, 149, 55, 0.08);
+}
+
 .theme-dropdown__trigger:hover,
 .theme-dropdown--open .theme-dropdown__trigger {
   border-color: var(--theme-border-default);
   background: var(--theme-bg-surface-soft);
+}
+
+:root[data-theme="paper"] .theme-dropdown__trigger {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 253, 0.96));
+}
+
+:root[data-theme="night"] .theme-dropdown__trigger {
+  background:
+    linear-gradient(180deg, rgba(48, 57, 69, 0.98), rgba(35, 43, 52, 0.96));
 }
 
 .theme-dropdown__label {
@@ -184,7 +233,7 @@ textarea:focus-visible {
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  z-index: 60;
+  z-index: 140;
   min-width: 240px;
   display: grid;
   gap: 6px;
@@ -193,6 +242,13 @@ textarea:focus-visible {
   border-radius: 14px;
   background: var(--theme-gradient-popup);
   box-shadow: var(--theme-shadow-floating);
+}
+
+.theme-dropdown__menu--portal {
+  position: fixed;
+  top: 0;
+  right: auto;
+  z-index: 400;
 }
 
 .theme-dropdown__option {
@@ -235,20 +291,32 @@ textarea:focus-visible {
 
 .theme-dropdown__swatch--atelier {
   background:
+    radial-gradient(circle at 78% 36%, rgba(47, 143, 131, 0.34), transparent 18%),
     linear-gradient(135deg, rgba(232, 93, 63, 0.24), transparent 50%),
     linear-gradient(180deg, #f8e4cf, #f3efe8);
 }
 
 .theme-dropdown__swatch--paper {
   background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.12) 0 1px, transparent 1px),
     linear-gradient(135deg, rgba(38, 126, 204, 0.22), transparent 54%),
     linear-gradient(180deg, #f7fbff, #ecf3f9);
+  background-size: 10px 100%, auto, auto;
 }
 
 .theme-dropdown__swatch--night {
   background:
+    radial-gradient(circle at 76% 34%, rgba(79, 194, 180, 0.24), transparent 18%),
     linear-gradient(135deg, rgba(78, 156, 226, 0.28), transparent 54%),
     linear-gradient(180deg, #313a47, #212833);
+}
+
+.theme-dropdown__swatch--childrens-day {
+  background:
+    radial-gradient(circle at 26% 30%, rgba(255, 255, 255, 0.78), transparent 22%),
+    radial-gradient(circle at 76% 34%, rgba(110, 216, 190, 0.64), transparent 18%),
+    linear-gradient(135deg, rgba(255, 198, 74, 0.6), transparent 48%),
+    linear-gradient(180deg, #ffe7a7, #ffbc88);
 }
 
 .theme-dropdown__meta {
@@ -328,7 +396,29 @@ textarea:focus-visible {
   transition:
     background-color var(--motion-base) var(--ease-standard),
     border-color var(--motion-base) var(--ease-standard),
-    color var(--motion-base) var(--ease-standard);
+    color var(--motion-base) var(--ease-standard),
+    box-shadow var(--motion-base) var(--ease-standard);
+}
+
+:root[data-theme="atelier"] .topbar__project-link,
+:root[data-theme="paper"] .topbar__project-link,
+:root[data-theme="night"] .topbar__project-link {
+  box-shadow: 0 8px 16px color-mix(in srgb, var(--theme-text-primary) 6%, transparent);
+}
+
+:root[data-theme="atelier"] .topbar__project-link {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 245, 0.96), rgba(251, 243, 232, 0.92));
+}
+
+:root[data-theme="paper"] .topbar__project-link {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(245, 249, 253, 0.94));
+}
+
+:root[data-theme="night"] .topbar__project-link {
+  background:
+    linear-gradient(180deg, rgba(51, 61, 74, 0.96), rgba(36, 44, 54, 0.94));
 }
 
 .brand-mark {
@@ -368,6 +458,178 @@ textarea:focus-visible {
   background: var(--theme-bg-surface-soft);
   border-color: var(--theme-border-default);
   text-decoration: none;
+}
+
+:root[data-theme="atelier"] .topbar__project-link {
+  border-color: rgba(123, 96, 67, 0.14);
+}
+
+:root[data-theme="atelier"] .topbar__project-feedback {
+  background: rgba(232, 93, 63, 0.1);
+  color: #c45d41;
+}
+
+:root[data-theme="atelier"] .topbar__project-link::after {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.62), transparent 26%),
+    linear-gradient(180deg, rgba(232, 93, 63, 0.84), rgba(194, 104, 71, 0.92));
+  box-shadow: 0 4px 10px rgba(111, 88, 60, 0.12);
+}
+
+:root[data-theme="paper"] .topbar__project-link::after {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 35%, rgba(255, 255, 255, 0.72), transparent 26%),
+    linear-gradient(180deg, rgba(116, 178, 233, 0.92), rgba(72, 141, 206, 0.96));
+  box-shadow:
+    0 4px 10px rgba(78, 108, 136, 0.12);
+}
+
+:root[data-theme="paper"] .topbar__project-feedback {
+  background: rgba(38, 126, 204, 0.12);
+  color: #1f6db2;
+}
+
+:root[data-theme="night"] .topbar__project-link::after {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, rgba(79, 194, 180, 0.88), rgba(78, 156, 226, 0.84));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 0 12px rgba(79, 194, 180, 0.28);
+}
+
+:root[data-theme="night"] .topbar__project-feedback {
+  background: rgba(78, 156, 226, 0.16);
+  color: #8fc5ff;
+}
+
+.topbar__project-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar__project-name {
+  color: var(--theme-text-primary);
+  font-weight: 600;
+}
+
+.topbar__project-feedback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-accent-primary) 10%, transparent);
+  color: var(--theme-accent-primary);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.topbar__project-state-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.topbar__project-state-dot--warning {
+  background: var(--theme-text-warning);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-text-warning) 14%, transparent);
+}
+
+.topbar__project-state-dot--success {
+  background: var(--theme-text-success);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-text-success) 14%, transparent);
+}
+
+:root[data-theme="paper"] .topbar__project-state-dot {
+  width: 7px;
+  height: 7px;
+}
+
+:root[data-theme="paper"] .topbar__project-state-dot--warning {
+  background: #b9842f;
+  box-shadow: 0 0 0 3px rgba(185, 132, 47, 0.12);
+}
+
+:root[data-theme="paper"] .topbar__project-state-dot--success {
+  background: #4d6a86;
+  box-shadow: 0 0 0 3px rgba(77, 106, 134, 0.12);
+}
+
+.topbar__project-ribbon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--theme-festival-yellow), #ffb765);
+  color: #8c4c00;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  box-shadow: 0 4px 10px rgba(214, 149, 55, 0.18);
+}
+
+:root[data-theme="childrens-day"] .topbar--editor {
+  background:
+    radial-gradient(circle at 18% 50%, rgba(255, 201, 92, 0.18), transparent 20%),
+    radial-gradient(circle at 82% 46%, rgba(110, 216, 190, 0.14), transparent 18%),
+    var(--theme-gradient-topbar-editor);
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-soft));
+}
+
+:root[data-theme="childrens-day"] .topbar__project-link {
+  position: relative;
+  padding-right: 14px;
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 20%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 247, 228, 0.88));
+  box-shadow: 0 8px 16px rgba(214, 149, 55, 0.08);
+}
+
+:root[data-theme="childrens-day"] .topbar__project-link::after {
+  content: "";
+  display: block;
+  flex: 0 0 auto;
+  position: absolute;
+  top: -5px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--theme-festival-pink);
+  box-shadow:
+    12px 6px 0 0 var(--theme-festival-yellow),
+    20px 1px 0 0 var(--theme-festival-green);
+}
+
+:root[data-theme="childrens-day"] .topbar__project-feedback {
+  background: rgba(255, 139, 92, 0.14);
+  color: #d86c40;
 }
 
 .topbar__project-link-main {
@@ -467,6 +729,23 @@ textarea:focus-visible {
   color: var(--theme-text-warning);
 }
 
+:root[data-theme="childrens-day"] .status-badge {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 24%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 246, 227, 0.92));
+  box-shadow: 0 6px 14px rgba(214, 149, 55, 0.08);
+}
+
+:root[data-theme="childrens-day"] .status-badge--success {
+  background:
+    linear-gradient(180deg, rgba(240, 255, 250, 0.98), rgba(221, 247, 237, 0.94));
+}
+
+:root[data-theme="childrens-day"] .status-badge--warning {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 232, 0.98), rgba(255, 237, 189, 0.94));
+}
+
 .button {
   border: 1px solid transparent;
   border-radius: var(--radius-lg);
@@ -551,6 +830,28 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
+:root[data-theme="childrens-day"] .button--tone-editor.button--secondary,
+:root[data-theme="childrens-day"] .button--tone-editor.button--ghost {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 20%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 229, 0.9));
+}
+
+:root[data-theme="childrens-day"] .button--tone-editor.button--secondary:hover,
+:root[data-theme="childrens-day"] .button--tone-editor.button--ghost:hover {
+  background:
+    linear-gradient(180deg, rgba(255, 252, 243, 0.98), rgba(255, 240, 212, 0.94));
+  box-shadow: 0 8px 16px rgba(214, 149, 55, 0.1);
+}
+
+:root[data-theme="childrens-day"] .button--tone-editor.button--primary {
+  background:
+    linear-gradient(180deg, #ff9b6c, #ff7f50);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 10px 20px rgba(245, 118, 68, 0.18);
+}
+
 .panel-card {
   display: flex;
   flex-direction: column;
@@ -598,6 +899,78 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
+:root[data-theme="atelier"] .panel-card--editor,
+:root[data-theme="atelier"] .editor-panel-group,
+:root[data-theme="atelier"] .stage-toolbar,
+:root[data-theme="atelier"] .stage-statusbar,
+:root[data-theme="atelier"] .modal-sheet,
+:root[data-theme="atelier"] .notification-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.84),
+    0 10px 22px rgba(111, 88, 60, 0.08);
+}
+
+:root[data-theme="paper"] .panel-card--editor,
+:root[data-theme="paper"] .editor-panel-group,
+:root[data-theme="paper"] .stage-toolbar,
+:root[data-theme="paper"] .stage-statusbar,
+:root[data-theme="paper"] .modal-sheet,
+:root[data-theme="paper"] .notification-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 10px 22px rgba(78, 108, 136, 0.08);
+}
+
+:root[data-theme="night"] .panel-card--editor,
+:root[data-theme="night"] .editor-panel-group,
+:root[data-theme="night"] .stage-toolbar,
+:root[data-theme="night"] .stage-statusbar,
+:root[data-theme="night"] .modal-sheet,
+:root[data-theme="night"] .notification-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 18px 34px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-theme="childrens-day"] .panel-card--editor,
+:root[data-theme="childrens-day"] .editor-panel-group,
+:root[data-theme="childrens-day"] .stage-toolbar,
+:root[data-theme="childrens-day"] .stage-statusbar,
+:root[data-theme="childrens-day"] .modal-sheet,
+:root[data-theme="childrens-day"] .notification-card {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-soft));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 10px 22px rgba(214, 149, 55, 0.08);
+}
+
+:root[data-theme="childrens-day"] .panel-card--editor {
+  background:
+    radial-gradient(circle at 100% 0, rgba(132, 187, 255, 0.08), transparent 26%),
+    radial-gradient(circle at 0 100%, rgba(255, 141, 181, 0.08), transparent 24%),
+    var(--theme-gradient-panel-editor);
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__brand-head {
+  position: relative;
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__brand-head::after {
+  content: "";
+  width: 44px;
+  height: 12px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--theme-festival-yellow) 0 26%, transparent 28%),
+    radial-gradient(circle, var(--theme-festival-pink) 0 26%, transparent 28%),
+    radial-gradient(circle, var(--theme-festival-green) 0 26%, transparent 28%);
+  background-position: 0 50%, 50% 50%, 100% 50%;
+  background-repeat: no-repeat;
+  background-size: 12px 12px;
+  opacity: 0.9;
+}
+
 .panel-card--editor .panel-card__header,
 .panel-card--editor .panel-card__body,
 .panel-card--editor .panel-card__footer {
@@ -612,6 +985,23 @@ textarea:focus-visible {
 
 .panel-card--editor .panel-card__title {
   font-size: 13px;
+}
+
+:root[data-theme="atelier"] .panel-card--editor {
+  background:
+    radial-gradient(circle at 100% 0, rgba(255, 212, 162, 0.12), transparent 24%),
+    linear-gradient(180deg, rgba(255, 251, 246, 0.96), rgba(250, 242, 231, 0.92));
+}
+
+:root[data-theme="paper"] .panel-card--editor {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 249, 253, 0.96));
+}
+
+:root[data-theme="night"] .panel-card--editor {
+  background:
+    radial-gradient(circle at 100% 0, rgba(78, 156, 226, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(43, 52, 63, 0.98), rgba(31, 38, 47, 0.96));
 }
 
 .app-shell--home {
@@ -644,10 +1034,70 @@ textarea:focus-visible {
   backdrop-filter: blur(14px);
 }
 
+:root[data-theme="atelier"] .home-entry__hero,
+:root[data-theme="paper"] .home-entry__hero,
+:root[data-theme="night"] .home-entry__hero {
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme="atelier"] .home-entry__hero::before,
+:root[data-theme="paper"] .home-entry__hero::before,
+:root[data-theme="night"] .home-entry__hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+:root[data-theme="atelier"] .home-entry__hero::before {
+  background:
+    radial-gradient(circle at 12% 18%, var(--theme-ornament-tertiary), transparent 24%),
+    radial-gradient(circle at 84% 22%, var(--theme-ornament-secondary), transparent 22%);
+}
+
+:root[data-theme="paper"] .home-entry__hero::before {
+  background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.08) 0 1px, transparent 1px),
+    linear-gradient(rgba(38, 126, 204, 0.06) 0 1px, transparent 1px);
+  background-size: 28px 28px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 84%);
+}
+
+:root[data-theme="night"] .home-entry__hero::before {
+  background:
+    radial-gradient(circle at 18% 14%, var(--theme-ornament-primary), transparent 22%),
+    radial-gradient(circle at 84% 22%, var(--theme-ornament-secondary), transparent 22%);
+}
+
 .home-entry__copy {
   display: grid;
   gap: 18px;
   align-content: center;
+}
+
+.home-entry__season-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--theme-border-warning);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--theme-bg-surface-warning-soft) 88%, white);
+  color: var(--theme-text-warning);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+:root[data-theme="atelier"] .home-entry__season-badge,
+:root[data-theme="paper"] .home-entry__season-badge,
+:root[data-theme="night"] .home-entry__season-badge {
+  border-color: var(--theme-border-soft);
+  background: var(--theme-home-badge-bg);
+  color: var(--theme-home-badge-text);
 }
 
 .home-entry__brand-lockup {
@@ -692,9 +1142,132 @@ textarea:focus-visible {
 }
 
 .home-entry__visual {
+  position: relative;
   display: grid;
   place-items: center;
   min-height: 100%;
+}
+
+.home-entry__hero--childrens-day {
+  position: relative;
+  overflow: hidden;
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 32%, var(--theme-border-soft));
+  box-shadow:
+    0 26px 60px rgba(214, 149, 55, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
+.home-entry__hero--childrens-day::before,
+.home-entry__hero--childrens-day::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-radius: 999px;
+}
+
+.home-entry__hero--childrens-day::before {
+  top: -44px;
+  right: -28px;
+  width: 240px;
+  height: 240px;
+  background: radial-gradient(circle, rgba(255, 201, 92, 0.38), transparent 64%);
+}
+
+.home-entry__hero--childrens-day::after {
+  bottom: -68px;
+  left: -58px;
+  width: 220px;
+  height: 220px;
+  background: radial-gradient(circle, rgba(110, 216, 190, 0.24), transparent 62%);
+}
+
+.festival-hero {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.festival-hero__garland {
+  position: absolute;
+  top: 28px;
+  right: 38px;
+  display: inline-flex;
+  gap: 8px;
+  transform: rotate(-6deg);
+}
+
+.festival-hero__flag {
+  width: 24px;
+  height: 30px;
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 50% 100%, 0 70%);
+  box-shadow: 0 4px 8px rgba(162, 114, 53, 0.12);
+}
+
+.festival-hero__flag--0 {
+  background: var(--theme-festival-yellow);
+}
+
+.festival-hero__flag--1 {
+  background: var(--theme-festival-orange);
+}
+
+.festival-hero__flag--2 {
+  background: var(--theme-festival-pink);
+}
+
+.festival-hero__flag--3 {
+  background: var(--theme-festival-green);
+}
+
+.festival-hero__flag--4 {
+  background: var(--theme-festival-blue);
+}
+
+.festival-hero__flag--5 {
+  background: #ffb36e;
+}
+
+.festival-hero__stickers {
+  position: absolute;
+  inset: 0;
+}
+
+.festival-hero__sticker {
+  position: absolute;
+  display: block;
+  opacity: 0.9;
+}
+
+.festival-hero__sticker--star {
+  top: 78px;
+  left: calc(50% + 64px);
+  width: 30px;
+  height: 30px;
+  background: var(--theme-festival-yellow);
+  clip-path: polygon(50% 0, 62% 34%, 100% 36%, 70% 58%, 82% 100%, 50% 76%, 18% 100%, 30% 58%, 0 36%, 38% 34%);
+  box-shadow: 0 8px 14px rgba(219, 168, 59, 0.18);
+}
+
+.festival-hero__sticker--heart {
+  right: 70px;
+  bottom: 98px;
+  width: 30px;
+  height: 28px;
+  background: var(--theme-festival-pink);
+  transform: rotate(-12deg);
+  clip-path: polygon(50% 100%, 0 42%, 16% 14%, 38% 14%, 50% 30%, 62% 14%, 84% 14%, 100% 42%);
+}
+
+.festival-hero__sticker--spark {
+  right: 112px;
+  top: 124px;
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background:
+    linear-gradient(45deg, transparent 36%, var(--theme-festival-green) 36% 64%, transparent 64%),
+    linear-gradient(-45deg, transparent 36%, var(--theme-festival-green) 36% 64%, transparent 64%);
+  transform: rotate(12deg);
 }
 
 .entry-flow {
@@ -703,6 +1276,8 @@ textarea:focus-visible {
   gap: 14px;
   align-items: center;
   width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
 .entry-flow__panel {
@@ -732,6 +1307,67 @@ textarea:focus-visible {
   background:
     linear-gradient(135deg, rgba(232, 93, 63, 0.24), transparent 50%),
     linear-gradient(180deg, #f8e4cf, #f3efe8);
+}
+
+:root[data-theme="atelier"] .entry-flow__thumb {
+  border-color: rgba(123, 96, 67, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.74),
+    0 16px 28px rgba(111, 88, 60, 0.08);
+}
+
+:root[data-theme="atelier"] .entry-flow__thumb--image {
+  background:
+    radial-gradient(circle at 24% 24%, rgba(255, 255, 255, 0.46), transparent 18%),
+    linear-gradient(145deg, rgba(232, 93, 63, 0.32), rgba(247, 224, 190, 0.8));
+}
+
+:root[data-theme="paper"] .entry-flow__thumb {
+  border-color: rgba(91, 120, 146, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(247, 250, 253, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.92),
+    0 14px 24px rgba(78, 108, 136, 0.08);
+}
+
+:root[data-theme="paper"] .entry-flow__thumb--image {
+  background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.1) 0 1px, transparent 1px),
+    linear-gradient(rgba(38, 126, 204, 0.08) 0 1px, transparent 1px),
+    linear-gradient(180deg, #f7fbff, #ecf3f9);
+  background-size: 18px 100%, 100% 18px, auto;
+}
+
+:root[data-theme="night"] .entry-flow__thumb {
+  border-color: rgba(238, 244, 250, 0.08);
+  background:
+    linear-gradient(180deg, rgba(48, 57, 69, 0.98), rgba(34, 41, 50, 0.96));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 16px 30px rgba(0, 0, 0, 0.22);
+}
+
+:root[data-theme="night"] .entry-flow__thumb--image {
+  background:
+    radial-gradient(circle at 28% 28%, rgba(79, 194, 180, 0.14), transparent 18%),
+    linear-gradient(145deg, rgba(78, 156, 226, 0.28), rgba(40, 49, 61, 0.98));
+}
+
+:root[data-theme="childrens-day"] .entry-flow__thumb {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 24%, var(--theme-border-soft));
+  border-radius: 28px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 229, 0.92));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    0 12px 26px rgba(214, 149, 55, 0.12);
+}
+
+:root[data-theme="childrens-day"] .entry-flow__thumb--image {
+  background:
+    radial-gradient(circle at 28% 30%, rgba(255, 255, 255, 0.54), transparent 24%),
+    linear-gradient(145deg, rgba(255, 157, 111, 0.58), rgba(255, 218, 151, 0.74));
 }
 
 .entry-flow__thumb--beads {
@@ -773,6 +1409,21 @@ textarea:focus-visible {
   background: color-mix(in srgb, var(--theme-bg-surface-strong) 86%, var(--theme-bg-page));
 }
 
+:root[data-theme="paper"] .entry-flow__thumb--pattern {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 249, 253, 0.96));
+}
+
+:root[data-theme="night"] .entry-flow__thumb--pattern {
+  background:
+    linear-gradient(180deg, rgba(51, 61, 74, 0.98), rgba(34, 41, 50, 0.96));
+}
+
+:root[data-theme="childrens-day"] .entry-flow__thumb--pattern {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 249, 236, 0.94));
+}
+
 .entry-flow__grid {
   width: 100%;
   height: 100%;
@@ -782,6 +1433,26 @@ textarea:focus-visible {
     linear-gradient(90deg, rgba(224, 160, 76, 0.48) 1px, transparent 1px);
   background-size: 16px 16px;
   background-color: var(--theme-stage-paper-fill);
+}
+
+:root[data-theme="paper"] .entry-flow__grid {
+  background:
+    linear-gradient(rgba(38, 126, 204, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(38, 126, 204, 0.2) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-color: #ffffff;
+}
+
+:root[data-theme="night"] .entry-flow__grid {
+  background:
+    linear-gradient(rgba(83, 157, 228, 0.28) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(83, 157, 228, 0.28) 1px, transparent 1px);
+  background-size: 16px 16px;
+  background-color: #f8fbff;
+}
+
+:root[data-theme="childrens-day"] .home-entry__visual .entry-flow {
+  margin-top: 0;
 }
 
 .bead--0,
@@ -842,6 +1513,70 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+:root[data-theme="atelier"] .app-shell--editor,
+:root[data-theme="paper"] .app-shell--editor,
+:root[data-theme="night"] .app-shell--editor {
+  position: relative;
+}
+
+:root[data-theme="atelier"] .app-shell--editor::before,
+:root[data-theme="paper"] .app-shell--editor::before,
+:root[data-theme="night"] .app-shell--editor::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+:root[data-theme="atelier"] .app-shell--editor::before {
+  background:
+    radial-gradient(circle at 8% 20%, var(--theme-ornament-tertiary), transparent 16%),
+    radial-gradient(circle at 88% 78%, var(--theme-ornament-secondary), transparent 16%);
+}
+
+:root[data-theme="paper"] .app-shell--editor::before {
+  background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.04) 0 1px, transparent 1px),
+    linear-gradient(rgba(38, 126, 204, 0.03) 0 1px, transparent 1px);
+  background-size: 32px 32px;
+  opacity: 0.7;
+}
+
+:root[data-theme="night"] .app-shell--editor::before {
+  background:
+    radial-gradient(circle at 16% 18%, rgba(78, 156, 226, 0.12), transparent 16%),
+    radial-gradient(circle at 84% 84%, rgba(79, 194, 180, 0.1), transparent 14%);
+}
+
+:root[data-theme="childrens-day"] .app-shell--editor {
+  position: relative;
+}
+
+:root[data-theme="childrens-day"] .app-shell--editor::before,
+:root[data-theme="childrens-day"] .app-shell--editor::after {
+  content: "";
+  position: fixed;
+  pointer-events: none;
+  z-index: 0;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  opacity: 0.5;
+}
+
+:root[data-theme="childrens-day"] .app-shell--editor::before {
+  top: 88px;
+  left: -64px;
+  background: radial-gradient(circle, rgba(255, 201, 92, 0.32), transparent 64%);
+}
+
+:root[data-theme="childrens-day"] .app-shell--editor::after {
+  right: -56px;
+  bottom: 22px;
+  background: radial-gradient(circle, rgba(132, 187, 255, 0.22), transparent 64%);
+}
+
 .editor-layout {
   display: grid;
   grid-template-columns:
@@ -855,6 +1590,12 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+:root[data-theme="childrens-day"] .editor-layout,
+:root[data-theme="childrens-day"] .topbar--editor {
+  position: relative;
+  z-index: 1;
+}
+
 .editor-sidebar {
   display: flex;
   flex-direction: column;
@@ -866,8 +1607,13 @@ textarea:focus-visible {
   scrollbar-gutter: stable;
 }
 
+:root[data-theme="childrens-day"] .editor-sidebar {
+  gap: 10px;
+}
+
 .editor-sidebar--right {
   position: relative;
+  z-index: 1;
 }
 
 .editor-panel-group {
@@ -888,6 +1634,12 @@ textarea:focus-visible {
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+}
+
+:root[data-theme="childrens-day"] .stage-toolbar,
+:root[data-theme="childrens-day"] .stage-statusbar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 230, 0.92));
 }
 
 .stage-toolbar,
@@ -1001,6 +1753,21 @@ textarea:focus-visible {
   overflow: hidden;
 }
 
+:root[data-theme="paper"] .stage-frame {
+  border-color: rgba(91, 120, 146, 0.18);
+}
+
+:root[data-theme="night"] .stage-frame {
+  border-color: rgba(238, 244, 250, 0.08);
+}
+
+:root[data-theme="childrens-day"] .stage-frame {
+  border-color: color-mix(in srgb, var(--theme-border-default) 88%, white);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.78),
+    0 10px 20px rgba(214, 149, 55, 0.06);
+}
+
 .stage-frame__canvas {
   display: grid;
   place-items: center;
@@ -1012,6 +1779,30 @@ textarea:focus-visible {
   border-radius: var(--radius-md);
   background: var(--theme-gradient-stage-canvas);
   overflow: hidden;
+}
+
+:root[data-theme="atelier"] .stage-frame__canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent),
+    #d9c8af;
+}
+
+:root[data-theme="paper"] .stage-frame__canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent),
+    #dbe5ef;
+}
+
+:root[data-theme="night"] .stage-frame__canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent),
+    #33404f;
+}
+
+:root[data-theme="childrens-day"] .stage-frame__canvas {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.36), transparent),
+    #f4eee5;
 }
 
 .stage-empty-state {
@@ -1401,6 +2192,41 @@ textarea:focus-visible {
   user-select: none;
   overscroll-behavior: contain;
   touch-action: none;
+}
+
+:root[data-theme="atelier"] .image-preview {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 8px 18px rgba(111, 88, 60, 0.07);
+}
+
+:root[data-theme="paper"] .image-preview {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.36),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    0 8px 18px rgba(78, 108, 136, 0.08);
+}
+
+:root[data-theme="night"] .image-preview {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 14px 28px rgba(0, 0, 0, 0.24);
+}
+
+:root[data-theme="childrens-day"] .image-preview {
+  border-color: color-mix(in srgb, var(--theme-border-default) 84%, white);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 244, 237, 0.94));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.32),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 8px 18px rgba(214, 149, 55, 0.05);
+}
+
+:root[data-theme="childrens-day"] .image-preview__hint {
+  background: rgba(255, 255, 255, 0.56);
 }
 
 
@@ -2274,6 +3100,33 @@ textarea:focus-visible {
   backdrop-filter: blur(6px);
 }
 
+:root[data-theme="atelier"] .modal-backdrop {
+  background:
+    radial-gradient(circle at 10% 18%, var(--theme-ornament-tertiary), transparent 16%),
+    var(--theme-bg-overlay);
+}
+
+:root[data-theme="paper"] .modal-backdrop {
+  background:
+    radial-gradient(circle at 86% 14%, var(--theme-ornament-primary), transparent 16%),
+    var(--theme-bg-overlay);
+}
+
+:root[data-theme="night"] .modal-backdrop {
+  background:
+    radial-gradient(circle at 12% 16%, rgba(78, 156, 226, 0.1), transparent 16%),
+    radial-gradient(circle at 88% 82%, rgba(79, 194, 180, 0.08), transparent 14%),
+    var(--theme-bg-overlay);
+}
+
+:root[data-theme="childrens-day"] .modal-backdrop {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(255, 201, 92, 0.12), transparent 18%),
+    radial-gradient(circle at 86% 14%, rgba(255, 141, 181, 0.12), transparent 18%),
+    radial-gradient(circle at 80% 86%, rgba(110, 216, 190, 0.12), transparent 18%),
+    var(--theme-bg-overlay);
+}
+
 .modal-sheet {
   width: min(720px, calc(100vw - 48px));
   max-height: min(720px, calc(100vh - 48px));
@@ -2287,6 +3140,41 @@ textarea:focus-visible {
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, white 22%, transparent),
     var(--theme-shadow-floating);
+}
+
+:root[data-theme="atelier"] .modal-sheet,
+:root[data-theme="paper"] .modal-sheet,
+:root[data-theme="night"] .modal-sheet {
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme="atelier"] .modal-sheet::before,
+:root[data-theme="paper"] .modal-sheet::before,
+:root[data-theme="night"] .modal-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 74px;
+  pointer-events: none;
+}
+
+:root[data-theme="atelier"] .modal-sheet::before {
+  background:
+    radial-gradient(circle at 10% 24%, var(--theme-ornament-tertiary), transparent 18%),
+    radial-gradient(circle at 86% 24%, var(--theme-ornament-secondary), transparent 16%);
+}
+
+:root[data-theme="paper"] .modal-sheet::before {
+  background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.06) 0 1px, transparent 1px);
+  background-size: 24px 100%;
+}
+
+:root[data-theme="night"] .modal-sheet::before {
+  background:
+    radial-gradient(circle at 10% 24%, rgba(78, 156, 226, 0.14), transparent 18%),
+    radial-gradient(circle at 84% 22%, rgba(79, 194, 180, 0.12), transparent 16%);
 }
 
 .modal-sheet--confirm {
@@ -2313,6 +3201,29 @@ textarea:focus-visible {
   gap: 12px;
 }
 
+:root[data-theme="childrens-day"] .modal-sheet {
+  position: relative;
+  overflow: hidden;
+}
+
+:root[data-theme="childrens-day"] .modal-sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 90px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 8% 32%, rgba(255, 201, 92, 0.24), transparent 18%),
+    radial-gradient(circle at 22% 18%, rgba(255, 141, 181, 0.18), transparent 16%),
+    radial-gradient(circle at 92% 24%, rgba(110, 216, 190, 0.18), transparent 18%);
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__header {
+  position: relative;
+  z-index: 1;
+  padding-bottom: 8px;
+}
+
 .modal-sheet__eyebrow {
   margin: 0 0 4px;
   color: var(--theme-text-muted);
@@ -2321,10 +3232,19 @@ textarea:focus-visible {
   text-transform: uppercase;
 }
 
+:root[data-theme="childrens-day"] .modal-sheet__eyebrow {
+  color: color-mix(in srgb, var(--theme-festival-orange) 72%, var(--theme-text-primary));
+  letter-spacing: 0.12em;
+}
+
 .modal-sheet__title {
   margin: 0;
   font-size: 24px;
   line-height: 1.1;
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__title {
+  color: color-mix(in srgb, var(--theme-text-primary) 86%, #8f4e2b);
 }
 
 .modal-sheet__title--confirm {
@@ -2353,6 +3273,29 @@ textarea:focus-visible {
   border: 1px solid var(--theme-border-soft);
   border-radius: 16px;
   background: color-mix(in srgb, var(--theme-bg-surface-muted) 84%, transparent);
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__block {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 247, 231, 0.92));
+}
+
+:root[data-theme="childrens-day"] .modal-sheet__block::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 28px;
+  height: 10px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle, var(--theme-festival-yellow) 0 28%, transparent 30%),
+    radial-gradient(circle, var(--theme-festival-pink) 0 28%, transparent 30%);
+  background-size: 10px 10px;
+  background-position: 0 50%, 100% 50%;
+  background-repeat: no-repeat;
+  opacity: 0.7;
 }
 
 .modal-sheet__brand-head {
@@ -2390,10 +3333,28 @@ textarea:focus-visible {
   gap: 8px;
 }
 
+.modal-sheet__block-head--stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+}
+
 .modal-sheet__block-head span,
 .modal-sheet__tip {
   color: var(--theme-text-secondary);
   font-size: 12px;
+}
+
+:root[data-theme="night"] .modal-sheet__title,
+:root[data-theme="night"] .help-center__article-head h3,
+:root[data-theme="night"] .help-center__section h4 {
+  color: #eef4fa;
+}
+
+:root[data-theme="paper"] .modal-sheet__title,
+:root[data-theme="paper"] .help-center__article-head h3 {
+  color: #20303f;
 }
 
 .modal-sheet__block a {
@@ -2472,11 +3433,31 @@ textarea:focus-visible {
     background var(--motion-fast) var(--ease-standard);
 }
 
+:root[data-theme="childrens-day"] .help-center {
+  position: relative;
+  z-index: 1;
+}
+
+:root[data-theme="childrens-day"] .help-center__sidebar {
+  border-right-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-soft));
+}
+
+:root[data-theme="childrens-day"] .help-center__search input {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-default));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 249, 237, 0.94));
+}
+
 .help-center__search input:focus {
   border-color: var(--theme-border-accent);
   box-shadow:
     inset 0 0 0 1px color-mix(in srgb, var(--theme-accent-primary) 38%, transparent),
     0 0 0 1px color-mix(in srgb, var(--theme-accent-primary) 22%, transparent);
+}
+
+:root[data-theme="night"] .help-center__search input {
+  background:
+    linear-gradient(180deg, rgba(43, 52, 63, 0.98), rgba(31, 38, 47, 0.96));
 }
 
 .help-center__quick-links {
@@ -2506,6 +3487,36 @@ textarea:focus-visible {
   border-color: color-mix(in srgb, var(--theme-accent-primary) 34%, transparent);
   background: var(--theme-bg-surface-accent-soft);
   color: var(--theme-text-primary);
+}
+
+:root[data-theme="paper"] .help-center__quick-link,
+:root[data-theme="paper"] .help-center__nav-item,
+:root[data-theme="paper"] .help-center__section {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(246, 249, 253, 0.96));
+}
+
+:root[data-theme="night"] .help-center__quick-link,
+:root[data-theme="night"] .help-center__nav-item,
+:root[data-theme="night"] .help-center__section {
+  background:
+    linear-gradient(180deg, rgba(51, 61, 74, 0.96), rgba(37, 45, 55, 0.94));
+}
+
+:root[data-theme="childrens-day"] .help-center__quick-link,
+:root[data-theme="childrens-day"] .help-center__nav-item,
+:root[data-theme="childrens-day"] .help-center__section {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 18%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 248, 234, 0.92));
+}
+
+:root[data-theme="childrens-day"] .help-center__quick-link:hover,
+:root[data-theme="childrens-day"] .help-center__quick-link--active,
+:root[data-theme="childrens-day"] .help-center__nav-item:hover,
+:root[data-theme="childrens-day"] .help-center__nav-item--active {
+  background:
+    linear-gradient(180deg, rgba(255, 249, 238, 1), rgba(255, 236, 205, 0.96));
 }
 
 .help-center__nav {
@@ -2567,6 +3578,13 @@ textarea:focus-visible {
 .help-center__nav-item--active {
   border-color: color-mix(in srgb, var(--theme-accent-primary) 30%, transparent);
   background: var(--theme-bg-surface-accent-soft);
+}
+
+:root[data-theme="atelier"] .help-center__quick-link,
+:root[data-theme="atelier"] .help-center__nav-item,
+:root[data-theme="atelier"] .help-center__section {
+  background:
+    linear-gradient(180deg, rgba(255, 251, 246, 0.98), rgba(249, 242, 231, 0.94));
 }
 
 .help-center__content {
@@ -2656,6 +3674,12 @@ textarea:focus-visible {
     background-color var(--motion-base) var(--ease-standard),
     border-color var(--motion-base) var(--ease-standard),
     color var(--motion-base) var(--ease-standard);
+}
+
+:root[data-theme="childrens-day"] .modal-icon-button {
+  border-color: color-mix(in srgb, var(--theme-festival-orange) 22%, var(--theme-border-soft));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 247, 229, 0.9));
 }
 
 .modal-icon-button:hover {
@@ -2819,20 +3843,32 @@ textarea:focus-visible {
 
 .theme-picker__swatch--atelier {
   background:
+    radial-gradient(circle at 78% 36%, rgba(47, 143, 131, 0.34), transparent 18%),
     linear-gradient(135deg, rgba(232, 93, 63, 0.24), transparent 50%),
     linear-gradient(180deg, #f8e4cf, #f3efe8);
 }
 
 .theme-picker__swatch--paper {
   background:
+    linear-gradient(90deg, rgba(38, 126, 204, 0.12) 0 1px, transparent 1px),
     linear-gradient(135deg, rgba(38, 126, 204, 0.22), transparent 54%),
     linear-gradient(180deg, #f7fbff, #ecf3f9);
+  background-size: 12px 100%, auto, auto;
 }
 
 .theme-picker__swatch--night {
   background:
+    radial-gradient(circle at 76% 34%, rgba(79, 194, 180, 0.24), transparent 18%),
     linear-gradient(135deg, rgba(78, 156, 226, 0.28), transparent 54%),
     linear-gradient(180deg, #313a47, #212833);
+}
+
+.theme-picker__swatch--childrens-day {
+  background:
+    radial-gradient(circle at 24% 28%, rgba(255, 255, 255, 0.76), transparent 24%),
+    radial-gradient(circle at 78% 36%, rgba(255, 141, 181, 0.62), transparent 18%),
+    linear-gradient(135deg, rgba(255, 198, 74, 0.56), transparent 48%),
+    linear-gradient(180deg, #ffe7a7, #ffbc88);
 }
 
 .theme-picker__meta {
@@ -2877,6 +3913,17 @@ textarea:focus-visible {
     min-height: auto;
     padding: 32px 24px;
     gap: 28px;
+  }
+
+  .festival-hero__garland {
+    top: 16px;
+    right: 20px;
+    gap: 6px;
+  }
+
+  .festival-hero__flag {
+    width: 18px;
+    height: 24px;
   }
 
   .home-entry__title {

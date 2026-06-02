@@ -1142,6 +1142,23 @@ function resolveStageTheme(themeKey?: string): StageTheme {
     };
   }
 
+  if (themeKey === "childrens-day") {
+    return {
+      frameFill: "#f1e7d8",
+      rulerFill: "#fffdf8",
+      rulerBorder: "#d9c7ae",
+      rulerText: "#755844",
+      paperFill: "#ffffff",
+      gridMajor: "rgba(255, 153, 83, 0.8)",
+      gridMinor: "rgba(132, 99, 74, 0.28)",
+      selectionFill: "rgba(74, 191, 161, 0.18)",
+      selectionStroke: "#33a889",
+      hoverPaint: "#33a889",
+      hoverErase: "#d96666",
+      hoverFill: "#ffb93d",
+    };
+  }
+
   return {
     frameFill: "#d8c8ae",
     rulerFill: "#f5f2ec",

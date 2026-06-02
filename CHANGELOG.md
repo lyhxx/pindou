@@ -2,6 +2,19 @@
 
 All notable changes to this project will be recorded in this document.
 
+## 1.0.7 - 2026-06-02
+
+### Changed
+
+- 统一站点 SEO 基础信息，重写首页 title、description、Open Graph、Twitter 和结构化数据文案
+- 仓库 README 首屏改为更偏产品入口的结构，补充在线体验、搜索关键词、项目摘要与使用场景
+- 项目开发 skill 的当前版本上下文同步到最新发布状态，避免文档与实际版本脱节
+
+### Fixed
+
+- 清理此前为搜索引擎兼容试验生成但已不再使用的 PNG / ICO 图标资源
+- 统一站点图标引用到 `public/brand/mushroom-logo.svg`，避免仓库与站点资源链路分散
+
 ## 1.0.6 - 2026-05-28
 
 ### Changed

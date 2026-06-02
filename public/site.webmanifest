@@ -1,0 +1,19 @@
+{
+  "name": "拼豆工坊",
+  "short_name": "拼豆工坊",
+  "description": "本地运行的拼豆图纸生成与编辑工具",
+  "lang": "zh-CN",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8f3ea",
+  "theme_color": "#f8f3ea",
+  "icons": [
+    {
+      "src": "/brand/mushroom-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

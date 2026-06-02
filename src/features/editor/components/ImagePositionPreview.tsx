@@ -109,7 +109,7 @@ export function ImagePositionPreview({
     if (!context) {
       return;
     }
-    const theme = readPreviewTheme();
+    const theme = readPreviewTheme(themeKey);
 
     context.clearRect(0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
     context.fillStyle = theme.frameFill;
@@ -371,28 +371,46 @@ function getPointerDistance(first: { x: number; y: number }, second: { x: number
   return Math.hypot(second.x - first.x, second.y - first.y);
 }
 
-function readPreviewTheme() {
-  if (typeof window === "undefined") {
+function readPreviewTheme(themeKey?: string) {
+  if (themeKey === "paper") {
     return {
-      frameFill: "#eadcc7",
+      frameFill: "#d3dde7",
       paperFill: "#ffffff",
-      emptyText: "#a1917d",
-      gridMajor: "rgba(216, 148, 66, 0.78)",
-      gridMinor: "rgba(92, 80, 67, 0.38)",
-      outline: "rgba(72, 60, 48, 0.82)",
+      emptyText: "#8190a0",
+      gridMajor: "rgba(74, 131, 194, 0.72)",
+      gridMinor: "rgba(92, 108, 126, 0.3)",
+      outline: "rgba(58, 72, 86, 0.72)",
     };
   }
 
-  const style = window.getComputedStyle(document.documentElement);
+  if (themeKey === "night") {
+    return {
+      frameFill: "#41505f",
+      paperFill: "#ffffff",
+      emptyText: "#7f90a1",
+      gridMajor: "rgba(83, 157, 228, 0.72)",
+      gridMinor: "rgba(107, 123, 140, 0.34)",
+      outline: "rgba(224, 232, 241, 0.7)",
+    };
+  }
+
+  if (themeKey === "childrens-day") {
+    return {
+      frameFill: "#f2e7d8",
+      paperFill: "#ffffff",
+      emptyText: "#ae8b68",
+      gridMajor: "rgba(255, 153, 83, 0.8)",
+      gridMinor: "rgba(132, 99, 74, 0.28)",
+      outline: "rgba(117, 88, 68, 0.62)",
+    };
+  }
 
   return {
-    frameFill: style.getPropertyValue("--theme-preview-frame-fill").trim() || "#eadcc7",
-    paperFill: style.getPropertyValue("--theme-stage-paper-fill").trim() || "#ffffff",
-    emptyText: style.getPropertyValue("--theme-text-muted").trim() || "#a1917d",
-    gridMajor:
-      style.getPropertyValue("--theme-stage-grid-major").trim() || "rgba(216, 148, 66, 0.78)",
-    gridMinor:
-      style.getPropertyValue("--theme-stage-grid-minor").trim() || "rgba(92, 80, 67, 0.38)",
-    outline: style.getPropertyValue("--theme-preview-outline").trim() || "rgba(72, 60, 48, 0.82)",
+    frameFill: "#eadcc7",
+    paperFill: "#ffffff",
+    emptyText: "#a1917d",
+    gridMajor: "rgba(216, 148, 66, 0.78)",
+    gridMinor: "rgba(92, 80, 67, 0.38)",
+    outline: "rgba(72, 60, 48, 0.82)",
   };
 }

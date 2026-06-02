@@ -8,7 +8,7 @@ import {
   type PropsWithChildren,
 } from "react";
 
-export type ThemeId = "atelier" | "paper" | "night";
+export type ThemeId = "atelier" | "paper" | "night" | "childrens-day";
 
 type ThemeOption = {
   id: ThemeId;
@@ -40,6 +40,11 @@ const THEME_OPTIONS: ThemeOption[] = [
     id: "night",
     label: "夜间深色",
     description: "降低眩光，适合长时间修图。",
+  },
+  {
+    id: "childrens-day",
+    label: "61 儿童节",
+    description: "限定节日皮肤，加入贴纸和彩旗感装饰。",
   },
 ];
 
@@ -120,5 +125,10 @@ function applyTheme(themeId: ThemeId) {
 }
 
 function isThemeId(value: string | null): value is ThemeId {
-  return value === "atelier" || value === "paper" || value === "night";
+  return (
+    value === "atelier" ||
+    value === "paper" ||
+    value === "night" ||
+    value === "childrens-day"
+  );
 }

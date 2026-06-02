@@ -1,16 +1,21 @@
 import { BrandMark } from "../../components/ui/BrandMark";
 import { Button } from "../../components/ui/Button";
+import { useTheme } from "../theme/theme";
 
 type HomePageProps = {
   onEnterEditor: () => void;
 };
 
 export function HomePage({ onEnterEditor }: HomePageProps) {
+  const { themeId } = useTheme();
+  const isChildrensDay = themeId === "childrens-day";
+
   return (
     <div className="app-shell app-shell--home">
       <main className="home-entry">
-        <section className="home-entry__hero">
+        <section className={`home-entry__hero${isChildrensDay ? " home-entry__hero--childrens-day" : ""}`}>
           <div className="home-entry__copy">
+            {isChildrensDay ? <span className="home-entry__season-badge">61 限定皮肤</span> : null}
             <div className="home-entry__brand-lockup">
               <BrandMark className="home-entry__brand-mark" />
               <span className="home-entry__brand">拼豆工坊</span>
@@ -25,6 +30,20 @@ export function HomePage({ onEnterEditor }: HomePageProps) {
           </div>
 
           <div className="home-entry__visual" aria-hidden="true">
+            {isChildrensDay ? (
+              <div className="festival-hero">
+                <div className="festival-hero__garland">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <span key={index} className={`festival-hero__flag festival-hero__flag--${index % 6}`} />
+                  ))}
+                </div>
+                <div className="festival-hero__stickers">
+                  <span className="festival-hero__sticker festival-hero__sticker--star" />
+                  <span className="festival-hero__sticker festival-hero__sticker--heart" />
+                  <span className="festival-hero__sticker festival-hero__sticker--spark" />
+                </div>
+              </div>
+            ) : null}
             <div className="entry-flow">
               <div className="entry-flow__panel entry-flow__panel--image">
                 <div className="entry-flow__thumb entry-flow__thumb--image" />
